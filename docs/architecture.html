@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>Robot Dataset Production Platform</title>
+<style>
+  body {
+    margin: 0;
+    padding: 18px 22px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f6f8fb;
+    color: #1f2937;
+  }
+
+  .title {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .title h1 {
+    margin: 0;
+    font-size: 26px;
+    color: #111827;
+  }
+
+  .title p {
+    display: inline-block;
+    margin: 6px 0 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: white;
+    border: 1px solid #dbe2ea;
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .executive-summary {
+    max-width: 1560px;
+    margin: 0 auto 8px;
+    box-sizing: border-box;
+    background: linear-gradient(135deg, #111827, #1f2937);
+    color: white;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+  }
+
+  .executive-summary h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+
+  .executive-summary p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #e5e7eb;
+  }
+
+  .highlight {
+    color: #facc15;
+    font-weight: 700;
+  }
+
+  .value-grid {
+    max-width: 1560px;
+    margin: 0 auto 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .value-card {
+    background: white;
+    border: 1px solid #dbe2ea;
+    border-radius: 12px;
+    padding: 9px 10px;
+    min-height: 104px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .value-card h3 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: #111827;
+  }
+
+  .value-card p {
+    margin: 0;
+    font-size: 10.8px;
+    line-height: 1.36;
+    color: #4b5563;
+  }
+
+  .value-card .key {
+    display: block;
+    margin-bottom: 4px;
+    color: #111827;
+    font-weight: 700;
+  }
+
+  .tagline {
+    display: inline-block;
+    margin-bottom: 5px;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: #111827;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .value-card .label {
+    color: #6b7280;
+    font-weight: 700;
+  }
+
+  .problem {
+    border-top: 4px solid #ef4444;
+  }
+
+  .cost {
+    border-top: 4px solid #f97316;
+  }
+
+  .solution {
+    border-top: 4px solid #3b82f6;
+  }
+
+  .business {
+    border-top: 4px solid #22c55e;
+  }
+
+  .section-label {
+    max-width: 1560px;
+    margin: 0 auto 6px;
+  }
+
+  .section-label h2 {
+    margin: 0;
+    font-size: 17px;
+    color: #111827;
+  }
+
+  .section-label p {
+    margin: 2px 0 0;
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .flow {
+    max-width: 1560px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1fr 42px 1fr 42px 1fr 42px 1fr;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .layer {
+    background: white;
+    border: 1px solid #dbe2ea;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 360px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .layer .card:last-child {
+    margin-bottom: 0;
+  }
+
+  .layer h2 {
+    font-size: 14px;
+    margin: 0 0 8px;
+    color: #111827;
+  }
+
+  .card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 7px;
+    margin-bottom: 6px;
+    background: #fafafa;
+  }
+
+  .subcard {
+    margin-top: 7px;
+    padding: 7px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px dashed #93c5fd;
+  }
+
+  .subcard strong {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .subcard p {
+    font-size: 10.5px;
+  }
+
+  .subcard .metric {
+    margin-top: 4px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .card strong {
+    display: flex;
+    align-items: center;
+    font-size: 12.8px;
+    margin-bottom: 5px;
+    color: #111827;
+  }
+
+  .card p {
+    font-size: 10.8px;
+    margin: 0;
+    line-height: 1.34;
+    color: #4b5563;
+  }
+
+  .logo {
+    width: 22px;
+    height: 22px;
+    margin-right: 6px;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  .logo.wide {
+    width: 44px;
+  }
+
+  .arrow {
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-weight: 700;
+  }
+
+  .blue {
+    background: #eef6ff;
+    border-color: #bfdbfe;
+  }
+
+  .orange {
+    background: #fff7ed;
+    border-color: #fed7aa;
+  }
+
+  .green {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+
+  .purple {
+    background: #f5f3ff;
+    border-color: #ddd6fe;
+  }
+
+  .red {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+
+  .metric {
+    margin-top: 5px;
+    padding: 5px 7px;
+    border-radius: 8px;
+    background: #111827;
+    color: white;
+    font-size: 10.5px;
+    line-height: 1.3;
+  }
+
+  .bottom-flow {
+    max-width: 1500px;
+    margin: 8px auto 0;
+    background: #111827;
+    color: white;
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-size: 11.2px;
+    line-height: 1.35;
+  }
+
+  code {
+    background: #e5e7eb;
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
+  .bottom-flow code {
+    background: #374151;
+  }
+
+  @media (max-width: 980px) {
+    .flow {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow {
+      transform: rotate(90deg);
+      margin: 6px 0;
+    }
+
+    .layer {
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    .value-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 720px) {
+    body {
+      padding: 20px;
+    }
+
+    .value-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="title">
+  <h1>Robot Dataset Production Platform</h1>
+  <p>Versioned robot data, sensor sync, reusable instruction annotations, reproducible training datasets</p>
+</div>
+
+<div class="executive-summary">
+  <h2>핵심 가치</h2>
+  <p>
+    로봇 데이터셋 생산에서 반복되는
+    <span class="highlight">원본 추적 불가</span>,
+    <span class="highlight">센서 싱크 오류</span>,
+    <span class="highlight">instruction 증가에 따른 데이터 복제</span>,
+    <span class="highlight">학습 재현성 부족</span>을 플랫폼 계층으로 분리해 해결한다.
+  </p>
+</div>
+
+<div class="value-grid">
+  <div class="value-card problem">
+    <h3>1. 원본 데이터 추적 불가</h3>
+    <span class="tagline">Cost: 재현 실패 조사 시간</span>
+    <p>
+      <span class="label">원인:</span> raw video/state/action이 폴더와 스크립트에 흩어짐<br>
+      <span class="label">해결:</span> Iceberg Snapshot으로 raw episode 고정<br>
+      <span class="label">효과:</span> dataset이 참조한 원본을 즉시 추적
+    </p>
+  </div>
+
+  <div class="value-card cost">
+    <h3>2. 센서 프레임 싱크 오류</h3>
+    <span class="tagline">Cost: 재학습·디버깅 반복</span>
+    <p>
+      <span class="label">원인:</span> Camera / Joint / Action 주기가 서로 다름<br>
+      <span class="label">해결:</span> 기준 timestamp로 observation-action window 정렬<br>
+      <span class="label">효과:</span> 잘못된 학습 pair를 생성 단계에서 차단
+    </p>
+  </div>
+
+  <div class="value-card solution">
+    <h3>3. action 데이터 표현 확장 비용 증가</h3>
+    <span class="tagline">Cost: 영상 복사·Dataset 재생성</span>
+    <p>
+      <span class="label">원인:</span> 표현 추가마다 영상 포함 dataset copy 생성<br>
+      <span class="label">해결:</span> episode는 1회 저장, instruction은 metadata 참조<br>
+      <span class="label">효과:</span> annotation/manifest만 증가
+    </p>
+  </div>
+
+  <div class="value-card business">
+    <h3>4. 학습 재현성 부족</h3>
+    <span class="tagline">Cost: 성능 회귀 원인 분석</span>
+    <p>
+      <span class="label">원인:</span> manifest, sync rule, annotation version이 흩어짐<br>
+      <span class="label">해결:</span> Registry가 dataset 생성 조건을 함께 고정<br>
+      <span class="label">효과:</span> 동일 dataset 재생성과 변경점 비교 가능
+    </p>
+  </div>
+</div>
+
+<div class="section-label">
+  <h2>Architecture</h2>
+</div>
+
+<div class="flow">
+
+  <!-- 1. Source -->
+  <section class="layer">
+    <h2>1. Robot / Edge Source</h2>
+
+    <div class="card">
+      <strong>🤖 Robot Device</strong>
+      <p>camera / state / IMU / action 생성</p>
+    </div>
+
+    <div class="card red">
+      <strong>⚠️ Pain Point</strong>
+      <p>센서 주기 불일치로 frame mismatch 발생</p>
+      <div class="metric">Camera 30Hz / Joint 100Hz / Action 50Hz</div>
+    </div>
+
+    <div class="card">
+      <strong>📷 Camera / Vision</strong>
+      <p>RGB / depth / video frame</p>
+    </div>
+
+    <div class="card">
+      <strong>🦾 Joint / IMU / Action</strong>
+      <p>joint state / IMU / gripper command</p>
+    </div>
+  </section>
+
+  <div class="arrow">⟶</div>
+
+  <!-- 2. Lakehouse -->
+  <section class="layer">
+    <h2>2. Versioned Raw Data Lakehouse</h2>
+
+    <div class="card blue">
+      <strong>
+        <img class="logo wide"
+             src="https://upload.wikimedia.org/wikipedia/commons/9/95/Apache_Iceberg_Logo.svg"
+             alt="Apache Iceberg Logo">
+        Apache Iceberg
+      </strong>
+      <p>Snapshot 기반 raw data versioning</p>
+    </div>
+
+    <div class="card green">
+      <strong>🧊 Snapshot as Source of Truth</strong>
+      <p>Dataset manifest가 특정 snapshot 참조</p>
+      <div class="metric">model_x → pick_cube_v3 → snapshot_38291837</div>
+    </div>
+
+    <div class="card">
+      <strong>
+        <img class="logo"
+             src="https://cdn.simpleicons.org/apacheparquet/50ABF1"
+             alt="Apache Parquet Logo">
+        Apache Parquet
+      </strong>
+      <p>columnar sensor data files</p>
+    </div>
+
+    <div class="card">
+      <strong>💾 Local Warehouse</strong>
+      <p>
+        local filesystem warehouse<br>
+        <code>./warehouse/robot_lakehouse</code>
+      </p>
+    </div>
+  </section>
+
+  <div class="arrow">⟶</div>
+
+  <!-- 3. ETL -->
+  <section class="layer">
+    <h2>3. Sensor Sync / Manifest Builder</h2>
+
+    <div class="card blue">
+      <strong>
+        <img class="logo"
+             src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/apachespark/apachespark-original.svg"
+             alt="Apache Spark Logo">
+        Apache Spark ETL
+      </strong>
+      <p>normalization + sensor sync + window calculation</p>
+      <div class="subcard">
+        <strong>🔄 Sensor Synchronization</strong>
+        <p>camera timestamp 기준으로 Joint / IMU / Action 정렬</p>
+        <div class="metric">잘못된 Observation-Action Pair 생성 방지</div>
+      </div>
+    </div>
+
+    <div class="card orange">
+      <strong>📝 Instruction Reference</strong>
+      <p>text metadata를 episode_id로 참조</p>
+      <div class="metric">ep_001 + inst_001, inst_002, inst_003</div>
+    </div>
+
+    <div class="card purple">
+      <strong>🧾 Dataset Manifest</strong>
+      <p>sample은 데이터 복사본이 아닌 참조 row</p>
+      <div class="metric">sample = episode + instruction + frame window</div>
+    </div>
+
+    <div class="card">
+      <strong>
+        <img class="logo"
+             src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg"
+             alt="Python Logo">
+        Python Exporter
+      </strong>
+      <p>manifest → LeRobot format</p>
+    </div>
+  </section>
+
+  <div class="arrow">⟶</div>
+
+  <!-- 4. Dataset / Training -->
+  <section class="layer">
+    <h2>4. Dataset Registry / Training</h2>
+
+    <div class="card orange">
+      <strong>📚 File-based Dataset Registry</strong>
+      <p>metadata / lineage / stats 관리</p>
+    </div>
+
+    <div class="card green">
+      <strong>🧬 Data Lineage</strong>
+      <p>snapshot / instruction / sync rule 기록</p>
+      <div class="metric">성능 저하 시 학습 데이터 원인 추적 가능</div>
+    </div>
+
+    <div class="card blue">
+      <strong>
+        <img class="logo"
+             src="https://cdn.simpleicons.org/huggingface/FFD21E"
+             alt="Hugging Face Logo">
+        LeRobot Dataset
+      </strong>
+      <p>reusable training dataset export</p>
+    </div>
+
+    <div class="card purple">
+      <strong>
+        <img class="logo"
+             src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pytorch/pytorch-original.svg"
+             alt="PyTorch Logo">
+        PyTorch Training
+      </strong>
+      <p>fixed dataset version으로 policy training</p>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>
