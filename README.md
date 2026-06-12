@@ -5,7 +5,9 @@ manifest-based dataset construction, and reproducible LeRobot training exports.
 
 ## Architecture Diagram
 
-Open the HTML architecture diagram:
+![Robot Dataset Production Platform Architecture](docs/architecture.png)
+
+Open the HTML version:
 
 ```text
 docs/architecture.html
