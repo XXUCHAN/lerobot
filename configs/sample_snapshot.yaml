@@ -1,0 +1,16 @@
+repo_id: yaak-ai/L2D-v3
+target_dir: data/external/yaak-ai_L2D-v3_sample
+allow_patterns:
+  - README.md
+  - meta/**
+  - data/chunk-000/file-000.parquet
+  - data/chunk-000/file-001.parquet
+  - data/chunk-000/file-002.parquet
+  - data/chunk-000/file-003.parquet
+  - videos/observation.images.front_left/chunk-000/file-000.mp4
+  - videos/observation.images.left_backward/chunk-000/file-000.mp4
+  - videos/observation.images.left_forward/chunk-000/file-000.mp4
+  - videos/observation.images.map/chunk-000/file-000.mp4
+  - videos/observation.images.rear/chunk-000/file-000.mp4
+  - videos/observation.images.right_backward/chunk-000/file-000.mp4
+  - videos/observation.images.right_forward/chunk-000/file-000.mp4

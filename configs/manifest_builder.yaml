@@ -1,0 +1,12 @@
+dataset_name: l2d_v3_sample
+snapshot_dir: data/external/yaak-ai_L2D-v3_sample
+manifest_dir: data/manifests/l2d_v3_sample
+registry_dir: registry/datasets/l2d_v3_sample
+spark_master: spark://spark-master:7077
+frame_stride: 30
+parquet_compression: snappy
+window:
+  observation_start_offset: -10
+  observation_end_offset: 0
+  action_start_offset: 1
+  action_end_offset: 10

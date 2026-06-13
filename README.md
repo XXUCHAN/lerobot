@@ -68,6 +68,77 @@ Raw Episode
   -> LeRobot Export
 ```
 
+## Docker Compose MVP
+
+The local MVP uses Docker Compose so Spark, Java, and Python dependencies stay
+inside containers.
+
+Build the environment:
+
+```bash
+docker compose build
+```
+
+Start Spark:
+
+```bash
+docker compose up -d spark-master spark-worker
+```
+
+Download a LeRobot v3 sample snapshot instead of the full dataset. The sample
+keeps all data modalities but only the first video shard per camera, staying
+below 10GB:
+
+```bash
+docker compose run --rm app -lc "python jobs/download_lerobot_sample.py"
+```
+
+Inspect the downloaded snapshot:
+
+```bash
+docker compose run --rm app -lc "python jobs/inspect_lerobot_snapshot.py"
+```
+
+Build a first dataset manifest with Spark:
+
+```bash
+docker compose run --rm app -lc "spark-submit --master spark://spark-master:7077 jobs/build_manifest_spark.py"
+```
+
+The sample downloader currently fetches about 3.4 GiB:
+
+```text
+README.md
+meta/**
+data/chunk-000/file-000.parquet
+data/chunk-000/file-001.parquet
+data/chunk-000/file-002.parquet
+data/chunk-000/file-003.parquet
+videos/observation.images.front_left/chunk-000/file-000.mp4
+videos/observation.images.left_backward/chunk-000/file-000.mp4
+videos/observation.images.left_forward/chunk-000/file-000.mp4
+videos/observation.images.map/chunk-000/file-000.mp4
+videos/observation.images.rear/chunk-000/file-000.mp4
+videos/observation.images.right_backward/chunk-000/file-000.mp4
+videos/observation.images.right_forward/chunk-000/file-000.mp4
+```
+
+Manifest output is written as JSONL and Snappy-compressed Parquet:
+
+```text
+data/manifests/l2d_v3_sample/manifest.jsonl
+data/manifests/l2d_v3_sample/manifest.parquet/
+```
+
+Generated data is ignored by Git:
+
+```text
+data/
+warehouse/
+registry/datasets/
+.cache/
+```
+
 ## Key Components
 
 - `lakehouse`: raw episode tables, Iceberg snapshots, time travel metadata
