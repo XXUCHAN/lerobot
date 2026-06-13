@@ -28,6 +28,10 @@ def pick_column(columns: list[str], candidates: list[str]) -> str | None:
     return None
 
 
+def spark_col(name: str):
+    return F.col(f"`{name}`") if "." in name else F.col(name)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build a sample dataset manifest with Spark.")
     parser.add_argument(
@@ -44,6 +48,7 @@ def main() -> None:
     spark_master = config.get("spark_master", "local[*]")
     frame_stride = int(config.get("frame_stride", 30))
     parquet_compression = config.get("parquet_compression", "snappy")
+    episode_filter = config.get("episode_filter", [])
     window = config.get("window", {})
 
     manifest_dir.mkdir(parents=True, exist_ok=True)
@@ -59,11 +64,12 @@ def main() -> None:
     if not data_path.exists():
         raise FileNotFoundError(f"Missing frame data directory: {data_path}")
 
-    frames = spark.read.parquet(str(data_path))
+    frames = spark.read.option("recursiveFileLookup", "true").parquet(str(data_path))
     columns = frames.columns
     episode_col = pick_column(columns, ["episode_index", "episode_id", "episode"])
     frame_col = pick_column(columns, ["frame_index", "index", "timestamp"])
     task_col = pick_column(columns, ["task_index", "task_id"])
+    instruction_text_col = pick_column(columns, ["task.instructions", "task.policy"])
 
     if episode_col is None:
         frames = frames.withColumn("episode_id", F.lit("ep_unknown"))
@@ -77,11 +83,19 @@ def main() -> None:
         frames = frames.withColumn("instruction_id", F.lit("inst_unknown"))
         task_col = "instruction_id"
 
+    if episode_filter:
+        frames = frames.where(spark_col(episode_col).isin([int(episode) for episode in episode_filter]))
+
+    if instruction_text_col is None:
+        frames = frames.withColumn("instruction_text", F.lit(None).cast("string"))
+        instruction_text_col = "instruction_text"
+
     base = (
         frames.select(
-            F.col(episode_col).cast("string").alias("episode_id"),
-            F.col(frame_col).cast("long").alias("anchor_frame"),
-            F.col(task_col).cast("string").alias("instruction_id"),
+            spark_col(episode_col).cast("string").alias("episode_id"),
+            spark_col(frame_col).cast("long").alias("anchor_frame"),
+            F.concat(F.lit("task_"), spark_col(task_col).cast("string")).alias("instruction_id"),
+            spark_col(instruction_text_col).cast("string").alias("instruction_text"),
         )
         .where((F.col("anchor_frame") % F.lit(frame_stride)) == 0)
         .withColumn(
@@ -113,10 +127,12 @@ def main() -> None:
             "action_end_frame",
             F.col("anchor_frame") + F.lit(int(window.get("action_end_offset", 10))),
         )
+        .where(F.col("observation_start_frame") >= 0)
         .select(
             "sample_id",
             "episode_id",
             "instruction_id",
+            "instruction_text",
             "anchor_frame",
             "observation_start_frame",
             "observation_end_frame",
@@ -144,6 +160,7 @@ def main() -> None:
         "source_codebase_version": info.get("codebase_version"),
         "source_total_episodes": info.get("total_episodes"),
         "source_total_frames": info.get("total_frames"),
+        "episode_filter": episode_filter,
         "frame_stride": frame_stride,
         "window": window,
         "manifest_path": str(output_path),

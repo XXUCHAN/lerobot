@@ -85,9 +85,10 @@ Start Spark:
 docker compose up -d spark-master spark-worker
 ```
 
-Download a LeRobot v3 sample snapshot instead of the full dataset. The sample
-keeps all data modalities but only the first video shard per camera, staying
-below 10GB:
+Download a LeRobot v3 sample snapshot instead of the full dataset. The full
+`yaak-ai/L2D-v3` dataset is about 556GB, so the MVP downloads an
+episode-aligned sample under 10GB. It keeps every camera modality for episodes
+0 and 1, plus the frame parquet and metadata needed to inspect the dataset:
 
 ```bash
 docker compose run --rm app -lc "python jobs/download_lerobot_sample.py"
@@ -105,7 +106,9 @@ Build a first dataset manifest with Spark:
 docker compose run --rm app -lc "spark-submit --master spark://spark-master:7077 jobs/build_manifest_spark.py"
 ```
 
-The sample downloader currently fetches about 3.4 GiB:
+The sample downloader currently fetches about 6.75 GiB. The selected video
+shards are the files referenced by episodes 0 and 1 in `meta/episodes`, so the
+manifest does not point at missing camera files:
 
 ```text
 README.md
@@ -114,13 +117,20 @@ data/chunk-000/file-000.parquet
 data/chunk-000/file-001.parquet
 data/chunk-000/file-002.parquet
 data/chunk-000/file-003.parquet
-videos/observation.images.front_left/chunk-000/file-000.mp4
-videos/observation.images.left_backward/chunk-000/file-000.mp4
-videos/observation.images.left_forward/chunk-000/file-000.mp4
+videos/observation.images.front_left/chunk-000/file-024.mp4
+videos/observation.images.front_left/chunk-000/file-092.mp4
+videos/observation.images.left_backward/chunk-000/file-021.mp4
+videos/observation.images.left_backward/chunk-000/file-074.mp4
+videos/observation.images.left_forward/chunk-000/file-025.mp4
+videos/observation.images.left_forward/chunk-000/file-084.mp4
 videos/observation.images.map/chunk-000/file-000.mp4
-videos/observation.images.rear/chunk-000/file-000.mp4
-videos/observation.images.right_backward/chunk-000/file-000.mp4
-videos/observation.images.right_forward/chunk-000/file-000.mp4
+videos/observation.images.map/chunk-000/file-002.mp4
+videos/observation.images.rear/chunk-000/file-020.mp4
+videos/observation.images.rear/chunk-000/file-071.mp4
+videos/observation.images.right_backward/chunk-000/file-024.mp4
+videos/observation.images.right_backward/chunk-000/file-081.mp4
+videos/observation.images.right_forward/chunk-000/file-025.mp4
+videos/observation.images.right_forward/chunk-000/file-087.mp4
 ```
 
 Manifest output is written as JSONL and Snappy-compressed Parquet:

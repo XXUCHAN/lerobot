@@ -7,10 +7,17 @@ allow_patterns:
   - data/chunk-000/file-001.parquet
   - data/chunk-000/file-002.parquet
   - data/chunk-000/file-003.parquet
-  - videos/observation.images.front_left/chunk-000/file-000.mp4
-  - videos/observation.images.left_backward/chunk-000/file-000.mp4
-  - videos/observation.images.left_forward/chunk-000/file-000.mp4
+  - videos/observation.images.front_left/chunk-000/file-024.mp4
+  - videos/observation.images.front_left/chunk-000/file-092.mp4
+  - videos/observation.images.left_backward/chunk-000/file-021.mp4
+  - videos/observation.images.left_backward/chunk-000/file-074.mp4
+  - videos/observation.images.left_forward/chunk-000/file-025.mp4
+  - videos/observation.images.left_forward/chunk-000/file-084.mp4
   - videos/observation.images.map/chunk-000/file-000.mp4
-  - videos/observation.images.rear/chunk-000/file-000.mp4
-  - videos/observation.images.right_backward/chunk-000/file-000.mp4
-  - videos/observation.images.right_forward/chunk-000/file-000.mp4
+  - videos/observation.images.map/chunk-000/file-002.mp4
+  - videos/observation.images.rear/chunk-000/file-020.mp4
+  - videos/observation.images.rear/chunk-000/file-071.mp4
+  - videos/observation.images.right_backward/chunk-000/file-024.mp4
+  - videos/observation.images.right_backward/chunk-000/file-081.mp4
+  - videos/observation.images.right_forward/chunk-000/file-025.mp4
+  - videos/observation.images.right_forward/chunk-000/file-087.mp4

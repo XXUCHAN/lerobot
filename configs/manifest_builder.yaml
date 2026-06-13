@@ -5,6 +5,9 @@ registry_dir: registry/datasets/l2d_v3_sample
 spark_master: spark://spark-master:7077
 frame_stride: 30
 parquet_compression: snappy
+episode_filter:
+  - 0
+  - 1
 window:
   observation_start_offset: -10
   observation_end_offset: 0
