@@ -123,6 +123,26 @@ action frame window
 episode video references
 ```
 
+Export the manifest into a LeRobot-style tabular dataset:
+
+```bash
+docker compose run --rm app -lc "python jobs/export_lerobot_manifest.py"
+```
+
+The MVP export materializes one logical training sample per manifest row. It
+copies tabular observation/action values into a LeRobot-style directory and
+keeps large source videos as references in `meta/sample_refs.jsonl`.
+
+```text
+data/exports/lerobot/l2d_v3_manifest_export/
+  meta/info.json
+  meta/stats.json
+  meta/tasks.parquet
+  meta/episodes/chunk-000/file-000.parquet
+  meta/sample_refs.jsonl
+  data/chunk-000/file-000.parquet
+```
+
 The sample downloader currently fetches about 6.75 GiB. The selected video
 shards are the files referenced by episodes 0 and 1 in `meta/episodes`, so the
 manifest does not point at missing camera files:
@@ -174,4 +194,4 @@ registry/datasets/
 - `manifest`: sample index generation without copying raw data
 - `manifest/resolver`: manifest row to source episode/frame windows
 - `registry`: dataset version, lineage, stats, and reproducibility records
-- `export`: LeRobot/HuggingFace dataset export
+- `export`: manifest-based LeRobot/HuggingFace dataset export
