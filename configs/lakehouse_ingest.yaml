@@ -1,0 +1,10 @@
+snapshot_dir: data/external/yaak-ai_L2D-v3_sample
+warehouse_dir: /workspace/warehouse/robot_lakehouse
+catalog_name: robot_lakehouse
+namespace: raw
+spark_master: spark://spark-master:7077
+parquet_compression: snappy
+tables:
+  frames: frames
+  episodes: episodes
+  tasks: tasks

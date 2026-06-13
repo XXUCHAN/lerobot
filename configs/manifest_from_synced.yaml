@@ -1,0 +1,9 @@
+dataset_name: l2d_v3_synced_sample
+manifest_dir: data/manifests/l2d_v3_synced_sample
+registry_dir: registry/datasets/l2d_v3_synced_sample
+catalog_name: robot_lakehouse
+warehouse_dir: /workspace/warehouse/robot_lakehouse
+spark_master: spark://spark-master:7077
+parquet_compression: snappy
+source_table: robot_lakehouse.synced.samples
+require_sync_status: ok

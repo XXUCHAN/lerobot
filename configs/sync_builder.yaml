@@ -1,0 +1,33 @@
+dataset_name: l2d_v3_sample
+catalog_name: robot_lakehouse
+warehouse_dir: /workspace/warehouse/robot_lakehouse
+spark_master: spark://spark-master:7077
+parquet_compression: snappy
+source:
+  namespace: raw
+  frames_table: frames
+  episodes_table: episodes
+  tasks_table: tasks
+target:
+  namespace: synced
+  samples_table: samples
+registry_dir: registry/datasets/l2d_v3_sample
+episode_filter:
+  - 0
+  - 1
+frame_stride: 30
+columns:
+  episode: episode_index
+  frame: frame_index
+  timestamp: timestamp
+  sensor_timestamp: observation_state_timestamp
+  task: task_index
+  instruction: task_instructions
+window:
+  observation_start_offset: -10
+  observation_end_offset: 0
+  action_start_offset: 1
+  action_end_offset: 10
+quality:
+  sync_rule: frame_window_timestamp_validation_v1
+  max_timestamp_gap_seconds: 0.25

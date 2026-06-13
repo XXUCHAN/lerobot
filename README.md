@@ -100,11 +100,70 @@ Inspect the downloaded snapshot:
 docker compose run --rm app -lc "python jobs/inspect_lerobot_snapshot.py"
 ```
 
+Ingest raw LeRobot parquet files into local Iceberg tables:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/ingest_raw_to_iceberg.py"
+```
+
+This creates local Hadoop-catalog Iceberg tables under
+`warehouse/robot_lakehouse`:
+
+```text
+robot_lakehouse.raw.frames
+robot_lakehouse.raw.episodes
+robot_lakehouse.raw.tasks
+```
+
+Inspect Iceberg row counts and snapshots:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_iceberg_tables.py"
+```
+
+Build timestamp-aware synced samples from the raw Iceberg frame table:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_synced_samples.py"
+```
+
+This creates a validated sync table:
+
+```text
+robot_lakehouse.synced.samples
+```
+
+Each row is a logical sample with observation/action windows, timestamp
+coverage, row-count checks, source snapshot id, and `sync_status`.
+
+Inspect synced samples:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_synced_samples.py"
+```
+
 Build a first dataset manifest with Spark:
 
 ```bash
 docker compose run --rm app -lc "spark-submit --master spark://spark-master:7077 jobs/build_manifest_spark.py"
 ```
+
+Build a manifest from validated synced Iceberg samples:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_manifest_spark.py --config configs/manifest_from_synced.yaml"
+```
+
+Validate the end-to-end build artifacts:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/validate_dataset_build.py"
+```
+
+The validator checks that raw Iceberg tables have snapshots, all synced samples
+pass the required `sync_status`, manifest row counts match synced samples,
+sample ids are unique, frame windows are valid, and registry hashes/snapshot ids
+match the generated artifacts.
 
 Resolve one manifest row back to the source episode windows:
 
@@ -175,6 +234,15 @@ Manifest output is written as JSONL and Snappy-compressed Parquet:
 ```text
 data/manifests/l2d_v3_sample/manifest.jsonl
 data/manifests/l2d_v3_sample/manifest.parquet/
+```
+
+The synced manifest also writes a content-derived version:
+
+```text
+registry/datasets/l2d_v3_synced_sample/metadata.json
+registry/datasets/l2d_v3_synced_sample/lineage.json
+registry/datasets/l2d_v3_synced_sample/stats.json
+registry/datasets/l2d_v3_synced_sample/validation_report.json
 ```
 
 Generated data is ignored by Git:

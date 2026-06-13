@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+
+from robot_dataset_platform.lakehouse.iceberg import build_iceberg_spark, latest_snapshot_id
 
 
 def load_config(path: Path) -> dict:
@@ -32,33 +36,48 @@ def spark_col(name: str):
     return F.col(f"`{name}`") if "." in name else F.col(name)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Build a sample dataset manifest with Spark.")
-    parser.add_argument(
-        "--config",
-        default="configs/manifest_builder.yaml",
-        help="Manifest builder config path.",
-    )
-    args = parser.parse_args()
+def build_plain_spark(app_name: str, spark_master: str) -> SparkSession:
+    return SparkSession.builder.appName(app_name).master(spark_master).getOrCreate()
 
-    config = load_config(Path(args.config))
+
+def build_manifest_from_synced_table(spark: SparkSession, config: dict):
+    source_table = config["source_table"]
+    require_sync_status = config.get("require_sync_status")
+    source = spark.table(source_table)
+    if require_sync_status:
+        source = source.where(F.col("sync_status") == F.lit(require_sync_status))
+
+    manifest_columns = [
+        "sample_id",
+        "episode_id",
+        "instruction_id",
+        "instruction_text",
+        "anchor_frame",
+        "observation_start_frame",
+        "observation_end_frame",
+        "action_start_frame",
+        "action_end_frame",
+        "anchor_timestamp",
+        "observation_start_timestamp",
+        "observation_end_timestamp",
+        "action_start_timestamp",
+        "action_end_timestamp",
+        "observation_rows",
+        "action_rows",
+        "max_timestamp_gap_seconds",
+        "sync_status",
+        "sync_rule",
+        "source_frames_table",
+        "source_frames_snapshot_id",
+    ]
+    return source.select(*[column for column in manifest_columns if column in source.columns])
+
+
+def build_manifest_from_snapshot(spark: SparkSession, config: dict):
     snapshot_dir = Path(config["snapshot_dir"])
-    manifest_dir = Path(config["manifest_dir"])
-    registry_dir = Path(config["registry_dir"])
-    spark_master = config.get("spark_master", "local[*]")
     frame_stride = int(config.get("frame_stride", 30))
-    parquet_compression = config.get("parquet_compression", "snappy")
     episode_filter = config.get("episode_filter", [])
     window = config.get("window", {})
-
-    manifest_dir.mkdir(parents=True, exist_ok=True)
-    registry_dir.mkdir(parents=True, exist_ok=True)
-
-    spark = (
-        SparkSession.builder.appName("robot-dataset-manifest-builder")
-        .master(spark_master)
-        .getOrCreate()
-    )
 
     data_path = snapshot_dir / "data"
     if not data_path.exists():
@@ -110,7 +129,7 @@ def main() -> None:
         )
     )
 
-    manifest = (
+    return (
         base.withColumn(
             "observation_start_frame",
             F.col("anchor_frame") + F.lit(int(window.get("observation_start_offset", -10))),
@@ -141,6 +160,53 @@ def main() -> None:
         )
     )
 
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build a sample dataset manifest with Spark.")
+    parser.add_argument(
+        "--config",
+        default="configs/manifest_builder.yaml",
+        help="Manifest builder config path.",
+    )
+    args = parser.parse_args()
+
+    config = load_config(Path(args.config))
+    manifest_dir = Path(config["manifest_dir"])
+    registry_dir = Path(config["registry_dir"])
+    spark_master = config.get("spark_master", "local[*]")
+    parquet_compression = config.get("parquet_compression", "snappy")
+    source_table = config.get("source_table")
+
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    registry_dir.mkdir(parents=True, exist_ok=True)
+
+    if source_table:
+        spark = build_iceberg_spark(config, "robot-dataset-manifest-builder")
+        manifest = build_manifest_from_synced_table(spark, config)
+        source_snapshot_id = latest_snapshot_id(spark, source_table)
+    else:
+        spark = build_plain_spark("robot-dataset-manifest-builder", spark_master)
+        manifest = build_manifest_from_snapshot(spark, config)
+        source_snapshot_id = None
+
+    order_columns = [
+        column
+        for column in ["episode_id", "anchor_frame", "instruction_id"]
+        if column in manifest.columns
+    ]
+    if order_columns:
+        manifest = manifest.orderBy(*order_columns)
+    manifest = manifest.cache()
+    manifest_rows = manifest.count()
+
     output_path = manifest_dir / "manifest.jsonl"
     parquet_path = manifest_dir / "manifest.parquet"
     temp_path = manifest_dir / "_manifest_json"
@@ -152,17 +218,28 @@ def main() -> None:
     part_files = sorted(temp_path.glob("part-*.json"))
     if part_files:
         output_path.write_text(part_files[0].read_text(encoding="utf-8"), encoding="utf-8")
+    else:
+        output_path.write_text("", encoding="utf-8")
 
-    info = read_info(snapshot_dir)
+    manifest_sha256 = file_sha256(output_path)
+    manifest_version = manifest_sha256[:16]
+
+    info = read_info(Path(config["snapshot_dir"])) if config.get("snapshot_dir") else {}
     lineage = {
         "dataset_name": config["dataset_name"],
-        "snapshot_dir": str(snapshot_dir),
+        "manifest_version": manifest_version,
+        "manifest_sha256": manifest_sha256,
+        "source_type": "iceberg_synced_table" if source_table else "snapshot_parquet",
+        "snapshot_dir": config.get("snapshot_dir"),
+        "source_table": source_table,
+        "source_snapshot_id": source_snapshot_id,
         "source_codebase_version": info.get("codebase_version"),
         "source_total_episodes": info.get("total_episodes"),
         "source_total_frames": info.get("total_frames"),
-        "episode_filter": episode_filter,
-        "frame_stride": frame_stride,
-        "window": window,
+        "episode_filter": config.get("episode_filter", []),
+        "frame_stride": config.get("frame_stride"),
+        "window": config.get("window", {}),
+        "require_sync_status": config.get("require_sync_status"),
         "manifest_path": str(output_path),
         "manifest_parquet_path": str(parquet_path),
         "parquet_compression": parquet_compression,
@@ -172,7 +249,11 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    stats = {"manifest_rows": manifest.count()}
+    stats = {
+        "manifest_rows": manifest_rows,
+        "manifest_version": manifest_version,
+        "manifest_sha256": manifest_sha256,
+    }
     (registry_dir / "stats.json").write_text(
         json.dumps(stats, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -181,8 +262,10 @@ def main() -> None:
     metadata = {
         "dataset_name": config["dataset_name"],
         "format": "robot_dataset_manifest_v0",
+        "manifest_version": manifest_version,
         "manifest_path": str(output_path),
         "manifest_parquet_path": str(parquet_path),
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
     }
     (registry_dir / "metadata.json").write_text(
         json.dumps(metadata, indent=2, ensure_ascii=False),
@@ -190,8 +273,10 @@ def main() -> None:
     )
 
     print(f"Wrote manifest: {output_path}")
+    print(f"Manifest version: {manifest_version}")
     print(f"Wrote snappy parquet manifest: {parquet_path}")
     print(f"Wrote registry: {registry_dir}")
+    manifest.unpersist()
     spark.stop()
 
 
