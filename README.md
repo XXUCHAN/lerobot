@@ -106,6 +106,23 @@ Build a first dataset manifest with Spark:
 docker compose run --rm app -lc "spark-submit --master spark://spark-master:7077 jobs/build_manifest_spark.py"
 ```
 
+Resolve one manifest row back to the source episode windows:
+
+```bash
+docker compose run --rm app -lc "python jobs/resolve_manifest_sample.py"
+```
+
+This proves the manifest is a logical dataset index, not a copied dataset. A
+single row resolves to:
+
+```text
+instruction text
+episode id
+observation frame window
+action frame window
+episode video references
+```
+
 The sample downloader currently fetches about 6.75 GiB. The selected video
 shards are the files referenced by episodes 0 and 1 in `meta/episodes`, so the
 manifest does not point at missing camera files:
@@ -155,5 +172,6 @@ registry/datasets/
 - `sync`: timestamp alignment, interpolation, observation/action windows
 - `annotations`: language instruction and label metadata
 - `manifest`: sample index generation without copying raw data
+- `manifest/resolver`: manifest row to source episode/frame windows
 - `registry`: dataset version, lineage, stats, and reproducibility records
 - `export`: LeRobot/HuggingFace dataset export
