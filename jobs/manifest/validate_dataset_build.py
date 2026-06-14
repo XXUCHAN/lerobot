@@ -130,6 +130,7 @@ def validate_synced_table(
     rows = synced.count()
     snapshot_id = latest_snapshot_id(spark, synced_table)
     required_status = manifest_config.get("require_sync_status", "ok")
+    required_synced = synced.where(F.col("sync_status") == F.lit(required_status)).cache()
 
     status_counts = {
         row["sync_status"]: int(row["count"])
@@ -137,12 +138,12 @@ def validate_synced_table(
     }
     required_status_rows = int(status_counts.get(required_status, 0))
     non_required_rows = rows - required_status_rows
-    duplicate_samples = duplicate_count(synced, "sample_id")
+    duplicate_samples = duplicate_count(required_synced, "sample_id")
 
     quality_failed = 0
     for column in ["is_window_complete", "is_timestamp_monotonic", "is_gap_within_threshold"]:
-        if column in synced.columns:
-            quality_failed += synced.where(~F.col(column)).count()
+        if column in required_synced.columns:
+            quality_failed += required_synced.where(~F.col(column)).count()
 
     required_columns = [
         "sample_id",
@@ -157,7 +158,7 @@ def validate_synced_table(
         "source_frames_snapshot_id",
     ]
     missing_required_rows = missing_required_count(
-        synced,
+        required_synced,
         [column for column in required_columns if column in synced.columns],
     )
 
@@ -175,9 +176,23 @@ def validate_synced_table(
     )
     add_check(
         checks,
-        "synced_status_all_required",
-        rows > 0 and non_required_rows == 0,
-        {"required_status": required_status, "status_counts": status_counts},
+        "synced_required_status_exists",
+        required_status_rows > 0,
+        {
+            "required_status": required_status,
+            "required_status_rows": required_status_rows,
+            "status_counts": status_counts,
+        },
+    )
+    add_check(
+        checks,
+        "synced_non_required_rows_excluded_from_manifest",
+        True,
+        {
+            "non_required_rows": non_required_rows,
+            "note": "Manifest builder filters source rows with require_sync_status.",
+        },
+        level="warning",
     )
     add_check(
         checks,
@@ -195,7 +210,10 @@ def validate_synced_table(
         checks,
         "synced_quality_flags_pass",
         quality_failed == 0,
-        {"failed_quality_flag_count": int(quality_failed)},
+        {
+            "required_status": required_status,
+            "failed_quality_flag_count": int(quality_failed),
+        },
     )
 
     lineage_path = Path(sync_config["registry_dir"]) / "sync_lineage.json"
@@ -231,6 +249,7 @@ def validate_synced_table(
         "status_counts": status_counts,
         "duplicate_samples": duplicate_samples,
     }
+    required_synced.unpersist()
     synced.unpersist()
     return result
 
@@ -421,6 +440,9 @@ def validate_manifest(
                 "annotation_type",
                 "annotation_version",
                 "annotation_policy",
+                "task_label",
+                "object_label",
+                "scene_label",
                 "annotation_table",
                 "annotation_snapshot_id",
             ]

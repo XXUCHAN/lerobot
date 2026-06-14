@@ -42,12 +42,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Resolve one manifest row into source data windows.")
     parser.add_argument(
         "--snapshot-dir",
-        default="data/external/yaak-ai_L2D-v3_sample",
+        default="data/external/RobotisSW_omy_PickAndPlace_RedBlock2",
         help="Local LeRobot snapshot directory.",
     )
     parser.add_argument(
         "--manifest-path",
-        default="data/manifests/l2d_v3_sample/manifest.jsonl",
+        default="data/manifests/robotis_omy_pick_place_redblock_synced/manifest.jsonl",
         help="Manifest JSONL path.",
     )
     parser.add_argument(

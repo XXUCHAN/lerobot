@@ -48,6 +48,7 @@ class ManifestResolver:
         self.snapshot_dir = Path(snapshot_dir)
         self._frame_dataset: ds.Dataset | None = None
         self._episode_table: pa.Table | None = None
+        self._info: dict[str, Any] | None = None
 
     @property
     def frame_dataset(self) -> ds.Dataset:
@@ -62,12 +63,23 @@ class ManifestResolver:
     def episode_table(self) -> pa.Table:
         if self._episode_table is None:
             files = sorted((self.snapshot_dir / "meta" / "episodes").rglob("*.parquet"))
-            if not files:
+            episodes_jsonl = self.snapshot_dir / "meta" / "episodes.jsonl"
+            if files:
+                self._episode_table = pq.read_table(files)
+            elif episodes_jsonl.exists():
+                self._episode_table = self._read_jsonl_table(episodes_jsonl)
+            else:
                 raise FileNotFoundError(
-                    f"Missing episode metadata parquet files under {self.snapshot_dir / 'meta' / 'episodes'}"
+                    f"Missing episode metadata under {self.snapshot_dir / 'meta'}"
                 )
-            self._episode_table = pq.read_table(files)
         return self._episode_table
+
+    @property
+    def info(self) -> dict[str, Any]:
+        if self._info is None:
+            info_path = self.snapshot_dir / "meta" / "info.json"
+            self._info = json.loads(info_path.read_text(encoding="utf-8")) if info_path.exists() else {}
+        return self._info
 
     def resolve(self, sample: ManifestSample) -> dict[str, Any]:
         observation = self._project_observation(
@@ -173,6 +185,7 @@ class ManifestResolver:
                 name
                 for name in table.column_names
                 if name in {"episode_index", "frame_index", "timestamp"}
+                or name == "action"
                 or name.startswith("action.")
             ]
         )
@@ -228,7 +241,50 @@ class ManifestResolver:
                 }
             )
 
+        return refs or self._episode_video_refs_from_info(episode_id)
+
+    def _episode_video_refs_from_info(self, episode_id: str) -> list[dict[str, Any]]:
+        info = self.info
+        features = info.get("features", {})
+        video_path_template = info.get("video_path")
+        if not isinstance(features, dict) or not video_path_template:
+            return []
+
+        episode_index = self._coerce_episode_id(episode_id)
+        if not isinstance(episode_index, int):
+            return []
+
+        chunks_size = int(info.get("chunks_size") or 1000)
+        episode_chunk = episode_index // chunks_size
+        refs: list[dict[str, Any]] = []
+        for video_key, feature in sorted(features.items()):
+            if not isinstance(feature, dict) or feature.get("dtype") != "video":
+                continue
+
+            relative_path = video_path_template.format(
+                episode_chunk=episode_chunk,
+                episode_index=episode_index,
+                video_key=video_key,
+            )
+            local_path = self.snapshot_dir / relative_path
+            refs.append(
+                {
+                    "video_key": video_key,
+                    "path": relative_path,
+                    "exists": local_path.exists(),
+                }
+            )
+
         return refs
+
+    @staticmethod
+    def _read_jsonl_table(path: Path) -> pa.Table:
+        rows: list[dict[str, Any]] = []
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    rows.append(json.loads(line))
+        return pa.Table.from_pylist(rows)
 
     @staticmethod
     def _pick_column(columns: list[str], candidates: list[str]) -> str | None:

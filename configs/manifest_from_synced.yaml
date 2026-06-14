@@ -1,6 +1,6 @@
-dataset_name: l2d_v3_synced_sample
-manifest_dir: data/manifests/l2d_v3_synced_sample
-registry_dir: registry/datasets/l2d_v3_synced_sample
+dataset_name: robotis_omy_pick_place_redblock_synced
+manifest_dir: data/manifests/robotis_omy_pick_place_redblock_synced
+registry_dir: registry/datasets/robotis_omy_pick_place_redblock_synced
 catalog_name: robot_lakehouse
 warehouse_dir: /workspace/warehouse/robot_lakehouse
 spark_master: spark://spark-master:7077
