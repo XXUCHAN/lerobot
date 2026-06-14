@@ -5,6 +5,13 @@ services:
       dockerfile: docker/spark/Dockerfile
     container_name: robot-dataset-spark-master
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      HOME: /tmp
+      USER: spark
+      LOGNAME: spark
+      SPARK_USER: spark
+      HADOOP_USER_NAME: spark
+      JAVA_TOOL_OPTIONS: -Duser.name=spark
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.master.Master
@@ -27,6 +34,13 @@ services:
       dockerfile: docker/spark/Dockerfile
     container_name: robot-dataset-spark-worker
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      HOME: /tmp
+      USER: spark
+      LOGNAME: spark
+      SPARK_USER: spark
+      HADOOP_USER_NAME: spark
+      JAVA_TOOL_OPTIONS: -Duser.name=spark
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.worker.Worker
@@ -55,6 +69,12 @@ services:
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     environment:
       HF_HOME: /workspace/.cache/huggingface
+      HOME: /tmp
+      USER: spark
+      LOGNAME: spark
+      SPARK_USER: spark
+      HADOOP_USER_NAME: spark
+      JAVA_TOOL_OPTIONS: -Duser.name=spark
       SPARK_MASTER_URL: spark://spark-master:7077
       PYTHONPATH: /workspace/src
     depends_on:

@@ -91,6 +91,10 @@ sudo chown -R $(id -u):$(id -g) .cache data warehouse registry 2>/dev/null || tr
 mkdir -p .cache data warehouse registry
 ```
 
+Spark/Hadoop jobs run with `HADOOP_USER_NAME=spark` and `-Duser.name=spark` in
+Docker Compose so Hadoop can resolve a stable user even when the container runs
+with the host UID.
+
 Build the environment:
 
 ```bash

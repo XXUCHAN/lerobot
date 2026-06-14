@@ -16,10 +16,14 @@ def build_iceberg_spark(config: dict[str, Any], app_name: str) -> SparkSession:
     catalog_name = config.get("catalog_name", "robot_lakehouse")
     warehouse_dir = config.get("warehouse_dir", "warehouse/robot_lakehouse")
     spark_master = config.get("spark_master", "local[*]")
+    hadoop_user = config.get("hadoop_user_name", "spark")
 
     return (
         SparkSession.builder.appName(app_name)
         .master(spark_master)
+        .config("spark.hadoop.hadoop.job.ugi", hadoop_user)
+        .config("spark.driver.extraJavaOptions", f"-Duser.name={hadoop_user}")
+        .config("spark.executor.extraJavaOptions", f"-Duser.name={hadoop_user}")
         .config(
             "spark.sql.extensions",
             "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",

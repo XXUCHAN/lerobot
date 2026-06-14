@@ -1,4 +1,4 @@
-snapshot_dir: data/external/yaak-ai_L2D-v3_sample
+snapshot_dir: data/external/RobotisSW_omy_PickAndPlace_RedBlock2
 warehouse_dir: /workspace/warehouse/robot_lakehouse
 catalog_name: robot_lakehouse
 namespace: raw
