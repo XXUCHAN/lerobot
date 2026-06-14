@@ -76,7 +76,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect a local LeRobot v3 snapshot.")
     parser.add_argument(
         "--snapshot-dir",
-        default="data/external/yaak-ai_L2D-v3_sample",
+        default="data/external/RobotisSW_omy_PickAndPlace_RedBlock2",
         help="Local snapshot directory.",
     )
     args = parser.parse_args()
@@ -99,4 +99,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

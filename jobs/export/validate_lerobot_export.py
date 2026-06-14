@@ -160,17 +160,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate a LeRobot-style manifest export.")
     parser.add_argument(
         "--export-dir",
-        default="data/exports/lerobot/l2d_v3_synced_manifest_export",
+        default="data/exports/lerobot/robotis_omy_pick_place_redblock_synced_export",
         help="Export directory to validate.",
     )
     parser.add_argument(
         "--manifest-path",
-        default="data/manifests/l2d_v3_synced_sample/manifest.jsonl",
+        default="data/manifests/robotis_omy_pick_place_redblock_synced/manifest.jsonl",
         help="Source manifest JSONL path.",
     )
     parser.add_argument(
         "--registry-dir",
-        default="registry/datasets/l2d_v3_synced_sample/exports/lerobot_manifest_export",
+        default="registry/datasets/robotis_omy_pick_place_redblock_synced/exports/lerobot_manifest_export",
         help="Registry export directory to validate.",
     )
     args = parser.parse_args()

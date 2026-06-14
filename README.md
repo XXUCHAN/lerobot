@@ -113,28 +113,35 @@ Start Spark:
 docker compose up -d spark-master spark-worker
 ```
 
-Download a LeRobot v3 sample snapshot instead of the full dataset. The full
-`yaak-ai/L2D-v3` dataset is about 556GB, so the MVP builds an episode-aligned
-download plan. The default config selects episodes 0..18, keeps every camera
-modality referenced by those episodes, includes frame parquet and metadata, and
-targets about 50GiB.
-
-Preview the planned download without fetching video shards:
+Download the Robotis Pick & Place source snapshot:
 
 ```bash
-docker compose run --rm app -lc "python jobs/snapshot/download_lerobot_sample.py --dry-run"
-```
+docker compose run --rm app -lc "python - <<'PY'
+from huggingface_hub import snapshot_download
 
-Download the planned sample:
-
-```bash
-docker compose run --rm app -lc "python jobs/snapshot/download_lerobot_sample.py"
+snapshot_download(
+    repo_id='RobotisSW/omy_PickAndPlace_RedBlock2',
+    repo_type='dataset',
+    local_dir='data/external/RobotisSW_omy_PickAndPlace_RedBlock2',
+    allow_patterns=['README.md', 'meta/**', 'data/**', 'videos/**'],
+)
+PY"
 ```
 
 Inspect the downloaded snapshot:
 
 ```bash
 docker compose run --rm app -lc "python jobs/snapshot/inspect_lerobot_snapshot.py"
+```
+
+The current Robotis working set is LeRobot v2.1 style data:
+
+```text
+episodes: 100
+frames: 47,761
+tasks: 2
+videos: 200
+robot: aiworker
 ```
 
 Ingest raw LeRobot parquet files into local Iceberg tables:
@@ -219,10 +226,10 @@ Validate the end-to-end build artifacts:
 docker compose run --rm app -lc "python jobs/manifest/validate_dataset_build.py"
 ```
 
-The validator checks that raw Iceberg tables have snapshots, all synced samples
-pass the required `sync_status`, manifest row counts match synced samples,
-sample ids are unique, frame windows are valid, and registry hashes/snapshot ids
-match the generated artifacts.
+The validator checks that raw Iceberg tables have snapshots, manifest source rows
+pass the required `sync_status`, manifest row counts match the annotation-expanded
+source view, sample ids are unique, frame windows are valid, and registry
+hashes/snapshot ids match the generated artifacts.
 
 Resolve one manifest row back to the source episode windows:
 
@@ -254,10 +261,11 @@ annotation, sync, and source snapshot lineage in both the export metadata and th
 dataset registry.
 
 ```text
-data/exports/lerobot/l2d_v3_synced_manifest_export/
+data/exports/lerobot/robotis_omy_pick_place_redblock_synced_export/
   meta/info.json
   meta/stats.json
   meta/export_lineage.json
+  meta/validation_report.json
   meta/tasks.parquet
   meta/episodes/chunk-000/file-000.parquet
   meta/sample_refs.jsonl
@@ -273,14 +281,18 @@ docker compose run --rm app -lc "python jobs/export/validate_lerobot_export.py"
 The export validator checks that manifest rows, exported data rows, episode rows,
 sample refs, manifest hashes, required columns, and registry records all match.
 
-The sample downloader computes video shards from `meta/episodes` instead of
-hard-coding file names. With the default 50GiB config, dry-run currently reports:
+The completed Robotis MVP produces:
 
 ```text
-episodes: 0..18 (19)
-video shards: 104
-allow patterns: 107
-estimated size: 48.47 GiB
+raw.frames: 47,761
+raw.episodes: 100
+raw.tasks: 2
+synced.samples: 1,534
+synced ok samples: 1,508
+annotations: 400
+manifest rows: 6,032
+export rows: 6,032
+missing video refs: 0
 ```
 
 If `validate_lerobot_export.py` reports non-zero `missing_video_ref_count`, rerun
@@ -289,17 +301,17 @@ the downloader so all referenced camera shards exist locally.
 Manifest output is written as JSONL and Snappy-compressed Parquet:
 
 ```text
-data/manifests/l2d_v3_sample/manifest.jsonl
-data/manifests/l2d_v3_sample/manifest.parquet/
+data/manifests/robotis_omy_pick_place_redblock_synced/manifest.jsonl
+data/manifests/robotis_omy_pick_place_redblock_synced/manifest.parquet/
 ```
 
 The synced manifest also writes a content-derived version:
 
 ```text
-registry/datasets/l2d_v3_synced_sample/metadata.json
-registry/datasets/l2d_v3_synced_sample/lineage.json
-registry/datasets/l2d_v3_synced_sample/stats.json
-registry/datasets/l2d_v3_synced_sample/validation_report.json
+registry/datasets/robotis_omy_pick_place_redblock_synced/metadata.json
+registry/datasets/robotis_omy_pick_place_redblock_synced/lineage.json
+registry/datasets/robotis_omy_pick_place_redblock_synced/stats.json
+registry/datasets/robotis_omy_pick_place_redblock_synced/validation_report.json
 ```
 
 With the annotation layer enabled, the synced manifest expands one physical

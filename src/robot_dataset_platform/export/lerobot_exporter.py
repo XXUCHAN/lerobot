@@ -167,6 +167,9 @@ class LeRobotManifestExporter:
             "annotation_version": sample.get("annotation_version"),
             "annotation_policy": sample.get("annotation_policy"),
             "annotation_language": sample.get("annotation_language"),
+            "task_label": sample.get("task_label"),
+            "object_label": sample.get("object_label"),
+            "scene_label": sample.get("scene_label"),
             "annotation_table": sample.get("annotation_table"),
             "annotation_snapshot_id": sample.get("annotation_snapshot_id"),
             "source_anchor_frame": sample.anchor_frame,
@@ -194,7 +197,7 @@ class LeRobotManifestExporter:
             if key.startswith("observation."):
                 row[key] = value
         for key, value in next_action.items():
-            if key.startswith("action."):
+            if key == "action" or key.startswith("action."):
                 row[key] = value
 
         return row
@@ -244,6 +247,9 @@ class LeRobotManifestExporter:
                 "version": sample.get("annotation_version"),
                 "policy": sample.get("annotation_policy"),
                 "language": sample.get("annotation_language"),
+                "task_label": sample.get("task_label"),
+                "object_label": sample.get("object_label"),
+                "scene_label": sample.get("scene_label"),
                 "table": sample.get("annotation_table"),
                 "snapshot_id": sample.get("annotation_snapshot_id"),
             },

@@ -11,22 +11,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Export manifest samples into a LeRobot-style dataset.")
     parser.add_argument(
         "--snapshot-dir",
-        default="data/external/yaak-ai_L2D-v3_sample",
+        default="data/external/RobotisSW_omy_PickAndPlace_RedBlock2",
         help="Local LeRobot source snapshot directory.",
     )
     parser.add_argument(
         "--manifest-path",
-        default="data/manifests/l2d_v3_synced_sample/manifest.jsonl",
+        default="data/manifests/robotis_omy_pick_place_redblock_synced/manifest.jsonl",
         help="Manifest JSONL path.",
     )
     parser.add_argument(
         "--export-dir",
-        default="data/exports/lerobot/l2d_v3_synced_manifest_export",
+        default="data/exports/lerobot/robotis_omy_pick_place_redblock_synced_export",
         help="Output LeRobot-style dataset directory.",
     )
     parser.add_argument(
         "--registry-dir",
-        default="registry/datasets/l2d_v3_synced_sample/exports/lerobot_manifest_export",
+        default="registry/datasets/robotis_omy_pick_place_redblock_synced/exports/lerobot_manifest_export",
         help="Registry directory for export metadata, lineage, and stats.",
     )
     args = parser.parse_args()
