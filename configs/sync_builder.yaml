@@ -12,9 +12,8 @@ target:
   namespace: synced
   samples_table: samples
 registry_dir: registry/datasets/l2d_v3_sample
-episode_filter:
-  - 0
-  - 1
+episode_filter_start: 0
+episode_filter_count: 19
 frame_stride: 30
 columns:
   episode: episode_index

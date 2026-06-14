@@ -87,9 +87,18 @@ docker compose up -d spark-master spark-worker
 ```
 
 Download a LeRobot v3 sample snapshot instead of the full dataset. The full
-`yaak-ai/L2D-v3` dataset is about 556GB, so the MVP downloads an
-episode-aligned sample under 10GB. It keeps every camera modality for episodes
-0 and 1, plus the frame parquet and metadata needed to inspect the dataset:
+`yaak-ai/L2D-v3` dataset is about 556GB, so the MVP builds an episode-aligned
+download plan. The default config selects episodes 0..18, keeps every camera
+modality referenced by those episodes, includes frame parquet and metadata, and
+targets about 50GiB.
+
+Preview the planned download without fetching video shards:
+
+```bash
+docker compose run --rm app -lc "python jobs/download_lerobot_sample.py --dry-run"
+```
+
+Download the planned sample:
 
 ```bash
 docker compose run --rm app -lc "python jobs/download_lerobot_sample.py"
@@ -237,32 +246,18 @@ docker compose run --rm app -lc "python jobs/validate_lerobot_export.py"
 The export validator checks that manifest rows, exported data rows, episode rows,
 sample refs, manifest hashes, required columns, and registry records all match.
 
-The sample downloader is configured to fetch about 6.75 GiB. The selected video
-shards are the files referenced by episodes 0 and 1 in `meta/episodes`; rerun
-the downloader if the export validator reports non-zero `missing_video_ref_count`:
+The sample downloader computes video shards from `meta/episodes` instead of
+hard-coding file names. With the default 50GiB config, dry-run currently reports:
 
 ```text
-README.md
-meta/**
-data/chunk-000/file-000.parquet
-data/chunk-000/file-001.parquet
-data/chunk-000/file-002.parquet
-data/chunk-000/file-003.parquet
-videos/observation.images.front_left/chunk-000/file-024.mp4
-videos/observation.images.front_left/chunk-000/file-092.mp4
-videos/observation.images.left_backward/chunk-000/file-021.mp4
-videos/observation.images.left_backward/chunk-000/file-074.mp4
-videos/observation.images.left_forward/chunk-000/file-025.mp4
-videos/observation.images.left_forward/chunk-000/file-084.mp4
-videos/observation.images.map/chunk-000/file-000.mp4
-videos/observation.images.map/chunk-000/file-002.mp4
-videos/observation.images.rear/chunk-000/file-020.mp4
-videos/observation.images.rear/chunk-000/file-071.mp4
-videos/observation.images.right_backward/chunk-000/file-024.mp4
-videos/observation.images.right_backward/chunk-000/file-081.mp4
-videos/observation.images.right_forward/chunk-000/file-025.mp4
-videos/observation.images.right_forward/chunk-000/file-087.mp4
+episodes: 0..18 (19)
+video shards: 104
+allow patterns: 107
+estimated size: 48.47 GiB
 ```
+
+If `validate_lerobot_export.py` reports non-zero `missing_video_ref_count`, rerun
+the downloader so all referenced camera shards exist locally.
 
 Manifest output is written as JSONL and Snappy-compressed Parquet:
 

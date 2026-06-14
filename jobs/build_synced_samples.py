@@ -28,6 +28,18 @@ def require_columns(df: DataFrame, columns: list[str]) -> None:
         raise ValueError(f"Missing required columns: {missing}")
 
 
+def episode_filter_values(config: dict[str, Any]) -> list[int]:
+    explicit_filter = config.get("episode_filter") or []
+    if explicit_filter:
+        return [int(episode) for episode in explicit_filter]
+
+    count = int(config.get("episode_filter_count", config.get("episode_limit", 0)) or 0)
+    if count <= 0:
+        return []
+    start = int(config.get("episode_filter_start", 0))
+    return list(range(start, start + count))
+
+
 def select_frame_columns(frames: DataFrame, config: dict[str, Any]) -> DataFrame:
     columns = config["columns"]
     required = [
@@ -55,7 +67,7 @@ def select_frame_columns(frames: DataFrame, config: dict[str, Any]) -> DataFrame
         ),
     )
 
-    episode_filter = config.get("episode_filter") or []
+    episode_filter = episode_filter_values(config)
     if episode_filter:
         selected = selected.where(
             F.col("raw_episode_id").isin([int(episode) for episode in episode_filter])
@@ -321,7 +333,9 @@ def main() -> None:
         "source_snapshot_id": source_snapshot_id,
         "target_table": target_table,
         "target_snapshot_id": target_snapshot_id,
-        "episode_filter": config.get("episode_filter", []),
+        "episode_filter": episode_filter_values(config),
+        "episode_filter_start": config.get("episode_filter_start"),
+        "episode_filter_count": config.get("episode_filter_count"),
         "frame_stride": config.get("frame_stride"),
         "window": config.get("window", {}),
         "quality": config.get("quality", {}),
