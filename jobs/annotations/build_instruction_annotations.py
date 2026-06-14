@@ -40,8 +40,8 @@ def build_source_annotations(source: DataFrame, config: dict[str, Any]) -> DataF
         .withColumn("text", F.col("source_instruction_text"))
         .withColumn("annotation_type", F.lit(config.get("source_annotation_type", "source_task")))
         .withColumn("task_label", F.lit(config.get("default_task_label")).cast("string"))
-        .withColumn("object_label", F.lit(None).cast("string"))
-        .withColumn("scene_label", F.lit(None).cast("string"))
+        .withColumn("object_label", F.lit(config.get("default_object_label")).cast("string"))
+        .withColumn("scene_label", F.lit(config.get("default_scene_label")).cast("string"))
         .withColumn("is_active", F.lit(True))
     )
 
@@ -167,6 +167,19 @@ def annotations_per_episode(df: DataFrame) -> list[dict[str, Any]]:
     ]
 
 
+def annotations_per_episode_summary(df: DataFrame) -> dict[str, int]:
+    counts = df.groupBy("episode_id").count().agg(
+        F.count("episode_id").cast("long").alias("episodes"),
+        F.min("count").cast("long").alias("min_annotations"),
+        F.max("count").cast("long").alias("max_annotations"),
+    ).collect()[0]
+    return {
+        "episodes": int(counts["episodes"] or 0),
+        "min_annotations": int(counts["min_annotations"] or 0),
+        "max_annotations": int(counts["max_annotations"] or 0),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build the instruction annotation Iceberg table from synced samples."
@@ -207,6 +220,7 @@ def main() -> None:
     target_snapshot_id = latest_snapshot_id(spark, target_table)
     type_counts = annotation_type_counts(annotations)
     per_episode = annotations_per_episode(annotations)
+    per_episode_summary = annotations_per_episode_summary(annotations)
 
     lineage = {
         "dataset_name": config["dataset_name"],
@@ -239,7 +253,7 @@ def main() -> None:
         "rows": annotation_count,
         "target_snapshot_id": target_snapshot_id,
         "annotation_type_counts": type_counts,
-        "annotations_per_episode": per_episode,
+        "annotations_per_episode_summary": per_episode_summary,
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
     annotations.unpersist()

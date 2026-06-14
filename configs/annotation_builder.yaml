@@ -1,4 +1,4 @@
-dataset_name: l2d_v3_sample
+dataset_name: robotis_omy_pick_place_redblock
 catalog_name: robot_lakehouse
 warehouse_dir: /workspace/warehouse/robot_lakehouse
 spark_master: spark://spark-master:7077
@@ -8,21 +8,31 @@ require_sync_status: ok
 target:
   namespace: annotations
   table: instructions
-registry_dir: registry/annotations/l2d_v3_sample
+registry_dir: registry/annotations/robotis_omy_pick_place_redblock
 annotation_version: ann_v1
 annotation_policy: source_plus_curated_paraphrases_v1
 language: en
 created_by: local_annotation_builder
 source_annotation_type: source_task
-default_task_label: traffic_light_driving
+default_task_label: pick_and_place
+default_object_label: red_block
+default_scene_label: green_bowl
 additional_annotations:
-  - match_text: Drive straight through the traffic lights
+  - match_text: Pick up the red block and place the red block in the green bowl.
     annotation_type: paraphrase
+    task_label: pick_and_place
+    object_label: red_block
+    scene_label: green_bowl
     texts:
-      - Continue straight through the traffic light
-      - Go straight at the signal
-  - match_text: Drive straight through the traffic lights at the end of the road
+      - Move the red block into the green bowl.
+      - Place the red block in the green bowl.
+      - Pick the red block and put it into the green bowl.
+  - match_text: Pick up the red block and place it in the green bowl.
     annotation_type: paraphrase
+    task_label: pick_and_place
+    object_label: red_block
+    scene_label: green_bowl
     texts:
-      - Continue straight through the traffic lights at the road end
-      - Go straight through the signal ahead
+      - Put the red block into the green bowl.
+      - Move the red block to the green bowl.
+      - Pick up the red block and drop it in the green bowl.

@@ -45,6 +45,16 @@ def main() -> None:
         {"episode_id": str(row["episode_id"]), "annotations": int(row["count"])}
         for row in annotations.groupBy("episode_id").count().orderBy("episode_id").collect()
     ]
+    per_episode_summary_row = annotations.groupBy("episode_id").count().agg(
+        F.count("episode_id").cast("long").alias("episodes"),
+        F.min("count").cast("long").alias("min_annotations"),
+        F.max("count").cast("long").alias("max_annotations"),
+    ).collect()[0]
+    per_episode_summary = {
+        "episodes": int(per_episode_summary_row["episodes"] or 0),
+        "min_annotations": int(per_episode_summary_row["min_annotations"] or 0),
+        "max_annotations": int(per_episode_summary_row["max_annotations"] or 0),
+    }
     sample_rows = (
         annotations.select(
             "episode_id",
@@ -54,6 +64,9 @@ def main() -> None:
             "annotation_type",
             "annotation_version",
             "annotation_policy",
+            "task_label",
+            "object_label",
+            "scene_label",
             "is_active",
         )
         .orderBy("episode_id", "annotation_type", "instruction_id")
@@ -67,7 +80,8 @@ def main() -> None:
         "rows": rows,
         "snapshot_id": snapshot_id,
         "annotation_type_counts": type_counts,
-        "annotations_per_episode": per_episode,
+        "annotations_per_episode_summary": per_episode_summary,
+        "annotations_per_episode_sample": per_episode[:10],
         "samples": sample_rows,
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
