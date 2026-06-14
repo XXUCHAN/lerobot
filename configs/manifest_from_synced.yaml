@@ -7,3 +7,9 @@ spark_master: spark://spark-master:7077
 parquet_compression: snappy
 source_table: robot_lakehouse.synced.samples
 require_sync_status: ok
+annotation_table: robot_lakehouse.annotations.instructions
+annotation_version: ann_v1
+annotation_active_only: true
+annotation_join_columns:
+  - episode_id
+  - source_instruction_id

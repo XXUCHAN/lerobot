@@ -1,0 +1,28 @@
+dataset_name: l2d_v3_sample
+catalog_name: robot_lakehouse
+warehouse_dir: /workspace/warehouse/robot_lakehouse
+spark_master: spark://spark-master:7077
+parquet_compression: snappy
+source_table: robot_lakehouse.synced.samples
+require_sync_status: ok
+target:
+  namespace: annotations
+  table: instructions
+registry_dir: registry/annotations/l2d_v3_sample
+annotation_version: ann_v1
+annotation_policy: source_plus_curated_paraphrases_v1
+language: en
+created_by: local_annotation_builder
+source_annotation_type: source_task
+default_task_label: traffic_light_driving
+additional_annotations:
+  - match_text: Drive straight through the traffic lights
+    annotation_type: paraphrase
+    texts:
+      - Continue straight through the traffic light
+      - Go straight at the signal
+  - match_text: Drive straight through the traffic lights at the end of the road
+    annotation_type: paraphrase
+    texts:
+      - Continue straight through the traffic lights at the road end
+      - Go straight through the signal ahead

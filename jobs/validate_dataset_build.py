@@ -68,6 +68,10 @@ def duplicate_count(df: DataFrame, column: str) -> int:
     return int(total - distinct)
 
 
+def duplicate_group_count(df: DataFrame, columns: list[str]) -> int:
+    return int(df.groupBy(*columns).count().where(F.col("count") > 1).count())
+
+
 def missing_required_count(df: DataFrame, columns: list[str]) -> int:
     condition = None
     for column in columns:
@@ -231,6 +235,152 @@ def validate_synced_table(
     return result
 
 
+def filtered_annotations(spark: SparkSession, manifest_config: dict[str, Any]) -> DataFrame | None:
+    annotation_table = manifest_config.get("annotation_table")
+    if not annotation_table:
+        return None
+
+    annotations = spark.table(annotation_table)
+    if manifest_config.get("annotation_active_only", True) and "is_active" in annotations.columns:
+        annotations = annotations.where(F.col("is_active") == F.lit(True))
+    if manifest_config.get("annotation_version") and "annotation_version" in annotations.columns:
+        annotations = annotations.where(
+            F.col("annotation_version") == F.lit(manifest_config["annotation_version"])
+        )
+    return annotations
+
+
+def validate_annotation_table(
+    spark: SparkSession,
+    manifest_config: dict[str, Any],
+    annotation_config: dict[str, Any],
+    checks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    annotation_table = manifest_config.get("annotation_table")
+    if not annotation_table:
+        return {"enabled": False}
+
+    annotations = filtered_annotations(spark, manifest_config)
+    if annotations is None:
+        return {"enabled": False}
+
+    annotations = annotations.cache()
+    rows = annotations.count()
+    snapshot_id = latest_snapshot_id(spark, annotation_table)
+    duplicate_annotations = duplicate_group_count(annotations, ["episode_id", "instruction_id"])
+    required_columns = [
+        "instruction_id",
+        "episode_id",
+        "source_instruction_id",
+        "text",
+        "annotation_type",
+        "annotation_version",
+        "annotation_policy",
+        "is_active",
+    ]
+    missing_required_rows = missing_required_count(annotations, required_columns)
+    type_counts = {
+        row["annotation_type"]: int(row["count"])
+        for row in annotations.groupBy("annotation_type").count().collect()
+    }
+
+    add_check(
+        checks,
+        "annotation_table_not_empty",
+        rows > 0,
+        {"table": annotation_table, "rows": rows, "snapshot_id": snapshot_id},
+    )
+    add_check(
+        checks,
+        "annotation_table_snapshot_exists",
+        snapshot_id is not None,
+        {"table": annotation_table, "snapshot_id": snapshot_id},
+    )
+    add_check(
+        checks,
+        "annotation_episode_instruction_unique",
+        duplicate_annotations == 0,
+        {"duplicate_annotations": duplicate_annotations},
+    )
+    add_check(
+        checks,
+        "annotation_required_fields_present",
+        missing_required_rows == 0,
+        {"missing_required_rows": missing_required_rows},
+    )
+
+    registry_dir = Path(annotation_config.get("registry_dir", ""))
+    lineage_path = registry_dir / "annotation_lineage.json"
+    stats_path = registry_dir / "annotation_stats.json"
+    lineage = read_json(lineage_path)
+    stats = read_json(stats_path)
+    add_check(
+        checks,
+        "annotation_lineage_snapshot_matches_table",
+        not registry_dir.name
+        or lineage.get("target_snapshot_id") == snapshot_id,
+        {
+            "lineage_path": str(lineage_path),
+            "lineage_target_snapshot_id": lineage.get("target_snapshot_id"),
+            "actual_snapshot_id": snapshot_id,
+        },
+    )
+    add_check(
+        checks,
+        "annotation_stats_count_matches_table",
+        not registry_dir.name or stats.get("annotations") == rows,
+        {
+            "stats_path": str(stats_path),
+            "stats_annotations": stats.get("annotations"),
+            "actual_rows": rows,
+        },
+    )
+
+    result = {
+        "enabled": True,
+        "table": annotation_table,
+        "rows": rows,
+        "snapshot_id": snapshot_id,
+        "annotation_type_counts": type_counts,
+        "duplicate_annotations": duplicate_annotations,
+    }
+    annotations.unpersist()
+    return result
+
+
+def expected_manifest_rows(
+    spark: SparkSession,
+    manifest_config: dict[str, Any],
+    synced_summary: dict[str, Any],
+) -> int:
+    annotation_table = manifest_config.get("annotation_table")
+    if not annotation_table:
+        return int(synced_summary["required_status_rows"])
+
+    source = spark.table(manifest_config["source_table"])
+    if manifest_config.get("require_sync_status"):
+        source = source.where(F.col("sync_status") == F.lit(manifest_config["require_sync_status"]))
+
+    annotations = filtered_annotations(spark, manifest_config)
+    if annotations is None:
+        return int(synced_summary["required_status_rows"])
+
+    source_alias = source.alias("source")
+    annotation_alias = annotations.alias("annotation")
+    join_conditions = [F.col("source.episode_id") == F.col("annotation.episode_id")]
+    join_columns = manifest_config.get("annotation_join_columns", ["episode_id"])
+    if "source_instruction_id" in join_columns:
+        join_conditions.append(
+            F.col("source.instruction_id") == F.col("annotation.source_instruction_id")
+        )
+
+    join_condition = join_conditions[0]
+    for condition in join_conditions[1:]:
+        join_condition = join_condition & condition
+
+    return int(source_alias.join(annotation_alias, join_condition, "inner").count())
+
+
 def validate_manifest(
     spark: SparkSession,
     manifest_config: dict[str, Any],
@@ -262,6 +412,19 @@ def validate_manifest(
         "action_start_frame",
         "action_end_frame",
     ]
+    if manifest_config.get("annotation_table"):
+        required_columns.extend(
+            [
+                "source_sample_id",
+                "source_instruction_id",
+                "source_instruction_text",
+                "annotation_type",
+                "annotation_version",
+                "annotation_policy",
+                "annotation_table",
+                "annotation_snapshot_id",
+            ]
+        )
     missing_required_rows = missing_required_count(manifest, required_columns)
     invalid_windows = manifest.where(
         (F.col("observation_start_frame") > F.col("observation_end_frame"))
@@ -272,6 +435,7 @@ def validate_manifest(
     metadata = read_json(metadata_path)
     lineage = read_json(lineage_path)
     stats = read_json(stats_path)
+    expected_rows = expected_manifest_rows(spark, manifest_config, synced_summary)
 
     add_check(
         checks,
@@ -287,11 +451,12 @@ def validate_manifest(
     )
     add_check(
         checks,
-        "manifest_count_matches_synced_required_status",
-        parquet_rows == synced_summary["required_status_rows"],
+        "manifest_count_matches_source_view",
+        parquet_rows == expected_rows,
         {
             "manifest_rows": parquet_rows,
-            "synced_required_status_rows": synced_summary["required_status_rows"],
+            "expected_manifest_rows": expected_rows,
+            "annotation_table": manifest_config.get("annotation_table"),
         },
     )
     add_check(
@@ -335,6 +500,23 @@ def validate_manifest(
             "synced_table_snapshot_id": synced_summary["snapshot_id"],
         },
     )
+    if manifest_config.get("annotation_table"):
+        annotation_snapshot_id = manifest.select("annotation_snapshot_id").dropDuplicates().collect()
+        annotation_snapshot_ids = [
+            int(row["annotation_snapshot_id"])
+            for row in annotation_snapshot_id
+            if row["annotation_snapshot_id"] is not None
+        ]
+        add_check(
+            checks,
+            "manifest_annotation_snapshot_matches_lineage",
+            len(set(annotation_snapshot_ids)) == 1
+            and lineage.get("annotation_snapshot_id") == annotation_snapshot_ids[0],
+            {
+                "lineage_annotation_snapshot_id": lineage.get("annotation_snapshot_id"),
+                "manifest_annotation_snapshot_ids": annotation_snapshot_ids,
+            },
+        )
 
     result = {
         "manifest_jsonl": str(manifest_jsonl),
@@ -362,6 +544,11 @@ def main() -> None:
         help="Synced manifest config path.",
     )
     parser.add_argument(
+        "--annotation-config",
+        default="configs/annotation_builder.yaml",
+        help="Instruction annotation builder config path.",
+    )
+    parser.add_argument(
         "--output",
         default=None,
         help="Validation report output path.",
@@ -370,6 +557,8 @@ def main() -> None:
 
     sync_config = load_yaml_config(Path(args.sync_config))
     manifest_config = load_yaml_config(Path(args.manifest_config))
+    annotation_config_path = Path(args.annotation_config)
+    annotation_config = load_yaml_config(annotation_config_path) if annotation_config_path.exists() else {}
     output_path = Path(args.output) if args.output else Path(manifest_config["registry_dir"]) / "validation_report.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -377,6 +566,7 @@ def main() -> None:
     checks: list[dict[str, Any]] = []
     raw_summary = validate_raw_tables(spark, sync_config, checks)
     synced_summary = validate_synced_table(spark, sync_config, manifest_config, checks)
+    annotation_summary = validate_annotation_table(spark, manifest_config, annotation_config, checks)
     manifest_summary = validate_manifest(spark, manifest_config, synced_summary, checks)
 
     errors = [check for check in checks if check["status"] == "error"]
@@ -388,6 +578,7 @@ def main() -> None:
         "warning_count": len(warnings),
         "raw": raw_summary,
         "synced": synced_summary,
+        "annotation": annotation_summary,
         "manifest": manifest_summary,
         "checks": checks,
     }

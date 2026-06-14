@@ -37,6 +37,7 @@ dist/
 data/
 warehouse/
 registry/datasets/
+registry/annotations/
 
 # Large media / robot data
 *.mp4

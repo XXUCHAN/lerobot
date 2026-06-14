@@ -63,6 +63,7 @@ notebooks/                        # Dataset inspection notebooks
 Raw Episode
   -> Versioned Lakehouse Snapshot
   -> Spark Sensor Sync / Window Builder
+  -> Instruction Annotation Layer
   -> Dataset Manifest
   -> Dataset Registry
   -> LeRobot Export
@@ -140,6 +141,28 @@ Inspect synced samples:
 
 ```bash
 docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_synced_samples.py"
+```
+
+Build instruction annotations from synced samples:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_instruction_annotations.py"
+```
+
+This creates a separate annotation table:
+
+```text
+robot_lakehouse.annotations.instructions
+```
+
+Each annotation row links text to an existing episode and source instruction.
+Adding paraphrases creates small metadata rows only; videos and raw frame parquet
+are not copied.
+
+Inspect annotations:
+
+```bash
+docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_instruction_annotations.py"
 ```
 
 Build a first dataset manifest with Spark:
@@ -245,12 +268,24 @@ registry/datasets/l2d_v3_synced_sample/stats.json
 registry/datasets/l2d_v3_synced_sample/validation_report.json
 ```
 
+With the annotation layer enabled, the synced manifest expands one physical
+episode window into multiple logical samples:
+
+```text
+sample = source_sample + annotation instruction
+```
+
+For example, one synced window can produce separate manifest rows for the source
+instruction and its paraphrases while all rows still reference the same episode,
+frame window, and Iceberg snapshots.
+
 Generated data is ignored by Git:
 
 ```text
 data/
 warehouse/
 registry/datasets/
+registry/annotations/
 .cache/
 ```
 

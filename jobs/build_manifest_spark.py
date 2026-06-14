@@ -40,12 +40,79 @@ def build_plain_spark(app_name: str, spark_master: str) -> SparkSession:
     return SparkSession.builder.appName(app_name).master(spark_master).getOrCreate()
 
 
-def build_manifest_from_synced_table(spark: SparkSession, config: dict):
+def build_manifest_from_synced_table(
+    spark: SparkSession,
+    config: dict,
+    annotation_snapshot_id: int | None = None,
+):
     source_table = config["source_table"]
     require_sync_status = config.get("require_sync_status")
     source = spark.table(source_table)
     if require_sync_status:
         source = source.where(F.col("sync_status") == F.lit(require_sync_status))
+
+    annotation_table = config.get("annotation_table")
+    if annotation_table:
+        annotations = spark.table(annotation_table)
+        if config.get("annotation_active_only", True) and "is_active" in annotations.columns:
+            annotations = annotations.where(F.col("is_active") == F.lit(True))
+        if config.get("annotation_version") and "annotation_version" in annotations.columns:
+            annotations = annotations.where(
+                F.col("annotation_version") == F.lit(config["annotation_version"])
+            )
+
+        source_alias = source.alias("source")
+        annotation_alias = annotations.alias("annotation")
+        join_conditions = [F.col("source.episode_id") == F.col("annotation.episode_id")]
+        join_columns = config.get("annotation_join_columns", ["episode_id"])
+        if "source_instruction_id" in join_columns:
+            join_conditions.append(
+                F.col("source.instruction_id") == F.col("annotation.source_instruction_id")
+            )
+
+        join_condition = join_conditions[0]
+        for condition in join_conditions[1:]:
+            join_condition = join_condition & condition
+
+        joined = source_alias.join(annotation_alias, join_condition, "inner")
+        return joined.select(
+            F.concat_ws(
+                "_",
+                F.lit("sample"),
+                F.col("source.episode_id"),
+                F.col("annotation.instruction_id"),
+                F.col("source.anchor_frame").cast("string"),
+            ).alias("sample_id"),
+            F.col("source.sample_id").alias("source_sample_id"),
+            F.col("source.episode_id").alias("episode_id"),
+            F.col("source.instruction_id").alias("source_instruction_id"),
+            F.col("source.instruction_text").alias("source_instruction_text"),
+            F.col("annotation.instruction_id").alias("instruction_id"),
+            F.col("annotation.text").alias("instruction_text"),
+            F.col("annotation.annotation_type").alias("annotation_type"),
+            F.col("annotation.annotation_version").alias("annotation_version"),
+            F.col("annotation.annotation_policy").alias("annotation_policy"),
+            F.col("annotation.language").alias("annotation_language"),
+            F.lit(annotation_table).alias("annotation_table"),
+            F.lit(annotation_snapshot_id).cast("long").alias("annotation_snapshot_id"),
+            F.col("source.anchor_frame"),
+            F.col("source.observation_start_frame"),
+            F.col("source.observation_end_frame"),
+            F.col("source.action_start_frame"),
+            F.col("source.action_end_frame"),
+            F.col("source.anchor_timestamp"),
+            F.col("source.observation_start_timestamp"),
+            F.col("source.observation_end_timestamp"),
+            F.col("source.action_start_timestamp"),
+            F.col("source.action_end_timestamp"),
+            F.col("source.observation_rows"),
+            F.col("source.action_rows"),
+            F.col("source.max_timestamp_gap_seconds"),
+            F.col("source.sync_status"),
+            F.col("source.sync_rule"),
+            F.col("source.source_frames_table"),
+            F.col("source.source_frames_snapshot_id"),
+        )
 
     manifest_columns = [
         "sample_id",
@@ -184,18 +251,21 @@ def main() -> None:
     spark_master = config.get("spark_master", "local[*]")
     parquet_compression = config.get("parquet_compression", "snappy")
     source_table = config.get("source_table")
+    annotation_table = config.get("annotation_table")
 
     manifest_dir.mkdir(parents=True, exist_ok=True)
     registry_dir.mkdir(parents=True, exist_ok=True)
 
     if source_table:
         spark = build_iceberg_spark(config, "robot-dataset-manifest-builder")
-        manifest = build_manifest_from_synced_table(spark, config)
         source_snapshot_id = latest_snapshot_id(spark, source_table)
+        annotation_snapshot_id = latest_snapshot_id(spark, annotation_table) if annotation_table else None
+        manifest = build_manifest_from_synced_table(spark, config, annotation_snapshot_id)
     else:
         spark = build_plain_spark("robot-dataset-manifest-builder", spark_master)
         manifest = build_manifest_from_snapshot(spark, config)
         source_snapshot_id = None
+        annotation_snapshot_id = None
 
     order_columns = [
         column
@@ -233,6 +303,11 @@ def main() -> None:
         "snapshot_dir": config.get("snapshot_dir"),
         "source_table": source_table,
         "source_snapshot_id": source_snapshot_id,
+        "annotation_table": annotation_table,
+        "annotation_snapshot_id": annotation_snapshot_id,
+        "annotation_version": config.get("annotation_version"),
+        "annotation_active_only": config.get("annotation_active_only"),
+        "annotation_join_columns": config.get("annotation_join_columns"),
         "source_codebase_version": info.get("codebase_version"),
         "source_total_episodes": info.get("total_episodes"),
         "source_total_frames": info.get("total_frames"),
