@@ -76,7 +76,7 @@ services:
       HADOOP_USER_NAME: spark
       JAVA_TOOL_OPTIONS: -Duser.name=spark
       SPARK_MASTER_URL: spark://spark-master:7077
-      PYTHONPATH: /workspace/src
+      PYTHONPATH: /workspace/src:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.9-src.zip
     depends_on:
       - spark-master
       - spark-worker

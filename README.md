@@ -52,7 +52,13 @@ data/manifests/                   # Dataset manifest JSONL files
 data/exports/lerobot/             # LeRobot/HuggingFace export output
 registry/datasets/                # Dataset metadata, lineage, stats, versions
 src/robot_dataset_platform/       # Platform source modules
-jobs/                             # Runnable ingestion/build/export jobs
+jobs/                             # Runnable pipeline jobs grouped by stage
+jobs/snapshot/                    # HuggingFace snapshot download and inspection
+jobs/lakehouse/                   # Raw parquet -> Iceberg lakehouse ingest
+jobs/sync/                        # Sensor sync and observation/action windows
+jobs/annotations/                 # Instruction annotation metadata layer
+jobs/manifest/                    # Logical dataset manifest and validation
+jobs/export/                      # LeRobot-style export and export validation
 tests/                            # Unit tests and fixtures
 notebooks/                        # Dataset inspection notebooks
 ```
@@ -116,25 +122,25 @@ targets about 50GiB.
 Preview the planned download without fetching video shards:
 
 ```bash
-docker compose run --rm app -lc "python jobs/download_lerobot_sample.py --dry-run"
+docker compose run --rm app -lc "python jobs/snapshot/download_lerobot_sample.py --dry-run"
 ```
 
 Download the planned sample:
 
 ```bash
-docker compose run --rm app -lc "python jobs/download_lerobot_sample.py"
+docker compose run --rm app -lc "python jobs/snapshot/download_lerobot_sample.py"
 ```
 
 Inspect the downloaded snapshot:
 
 ```bash
-docker compose run --rm app -lc "python jobs/inspect_lerobot_snapshot.py"
+docker compose run --rm app -lc "python jobs/snapshot/inspect_lerobot_snapshot.py"
 ```
 
 Ingest raw LeRobot parquet files into local Iceberg tables:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/ingest_raw_to_iceberg.py"
+docker compose run --rm app -lc "python jobs/lakehouse/ingest_raw_to_iceberg.py"
 ```
 
 This creates local Hadoop-catalog Iceberg tables under
@@ -149,13 +155,13 @@ robot_lakehouse.raw.tasks
 Inspect Iceberg row counts and snapshots:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_iceberg_tables.py"
+docker compose run --rm app -lc "python jobs/lakehouse/inspect_iceberg_tables.py"
 ```
 
 Build timestamp-aware synced samples from the raw Iceberg frame table:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_synced_samples.py"
+docker compose run --rm app -lc "python jobs/sync/build_synced_samples.py"
 ```
 
 This creates a validated sync table:
@@ -170,13 +176,13 @@ coverage, row-count checks, source snapshot id, and `sync_status`.
 Inspect synced samples:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_synced_samples.py"
+docker compose run --rm app -lc "python jobs/sync/inspect_synced_samples.py"
 ```
 
 Build instruction annotations from synced samples:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_instruction_annotations.py"
+docker compose run --rm app -lc "python jobs/annotations/build_instruction_annotations.py"
 ```
 
 This creates a separate annotation table:
@@ -192,25 +198,25 @@ are not copied.
 Inspect annotations:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/inspect_instruction_annotations.py"
+docker compose run --rm app -lc "python jobs/annotations/inspect_instruction_annotations.py"
 ```
 
 Build a first dataset manifest with Spark:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --master spark://spark-master:7077 jobs/build_manifest_spark.py"
+docker compose run --rm app -lc "python jobs/manifest/build_manifest_spark.py"
 ```
 
 Build a manifest from validated synced Iceberg samples:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/build_manifest_spark.py --config configs/manifest_from_synced.yaml"
+docker compose run --rm app -lc "python jobs/manifest/build_manifest_spark.py --config configs/manifest_from_synced.yaml"
 ```
 
 Validate the end-to-end build artifacts:
 
 ```bash
-docker compose run --rm app -lc "spark-submit --conf spark.jars.ivy=/workspace/.cache/ivy2 --packages org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0 jobs/validate_dataset_build.py"
+docker compose run --rm app -lc "python jobs/manifest/validate_dataset_build.py"
 ```
 
 The validator checks that raw Iceberg tables have snapshots, all synced samples
@@ -221,7 +227,7 @@ match the generated artifacts.
 Resolve one manifest row back to the source episode windows:
 
 ```bash
-docker compose run --rm app -lc "python jobs/resolve_manifest_sample.py"
+docker compose run --rm app -lc "python jobs/manifest/resolve_manifest_sample.py"
 ```
 
 This proves the manifest is a logical dataset index, not a copied dataset. A
@@ -238,7 +244,7 @@ episode video references
 Export the annotation-aware synced manifest into a LeRobot-style tabular dataset:
 
 ```bash
-docker compose run --rm app -lc "python jobs/export_lerobot_manifest.py"
+docker compose run --rm app -lc "python jobs/export/export_lerobot_manifest.py"
 ```
 
 The export materializes one logical training sample per manifest row. It copies
@@ -261,7 +267,7 @@ data/exports/lerobot/l2d_v3_synced_manifest_export/
 Validate the export artifacts:
 
 ```bash
-docker compose run --rm app -lc "python jobs/validate_lerobot_export.py"
+docker compose run --rm app -lc "python jobs/export/validate_lerobot_export.py"
 ```
 
 The export validator checks that manifest rows, exported data rows, episode rows,

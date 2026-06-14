@@ -12,8 +12,17 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements.txt
 
-RUN if ! getent passwd 1001 >/dev/null; then \
-      echo "spark:x:1001:0:Spark User:/opt/spark:/bin/bash" >> /etc/passwd; \
+RUN if ! getent group 1000 >/dev/null; then \
+      echo "hostuser:x:1000:" >> /etc/group; \
+    fi \
+    && if ! getent passwd 1000 >/dev/null; then \
+      echo "hostuser:x:1000:1000:Host User:/tmp:/bin/bash" >> /etc/passwd; \
+    fi \
+    && if ! getent group 1001 >/dev/null; then \
+      echo "spark:x:1001:" >> /etc/group; \
+    fi \
+    && if ! getent passwd 1001 >/dev/null; then \
+      echo "spark:x:1001:1001:Spark User:/opt/spark:/bin/bash" >> /etc/passwd; \
     fi
 
 RUN ln -sf /usr/bin/python3 /usr/local/bin/python

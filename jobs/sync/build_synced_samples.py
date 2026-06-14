@@ -28,6 +28,12 @@ def require_columns(df: DataFrame, columns: list[str]) -> None:
         raise ValueError(f"Missing required columns: {missing}")
 
 
+def existing_column(df: DataFrame, column: str | None) -> str | None:
+    if column and column in df.columns:
+        return column
+    return None
+
+
 def episode_filter_values(config: dict[str, Any]) -> list[int]:
     explicit_filter = config.get("episode_filter") or []
     if explicit_filter:
@@ -47,11 +53,9 @@ def select_frame_columns(frames: DataFrame, config: dict[str, Any]) -> DataFrame
         columns["frame"],
         columns["timestamp"],
         columns["task"],
-        columns["instruction"],
     ]
-    sensor_timestamp = columns.get("sensor_timestamp")
-    if sensor_timestamp:
-        required.append(sensor_timestamp)
+    sensor_timestamp = existing_column(frames, columns.get("sensor_timestamp"))
+    instruction = existing_column(frames, columns.get("instruction"))
     require_columns(frames, required)
 
     selected = frames.select(
@@ -59,7 +63,11 @@ def select_frame_columns(frames: DataFrame, config: dict[str, Any]) -> DataFrame
         F.col(columns["frame"]).cast("long").alias("raw_frame_index"),
         F.col(columns["timestamp"]).cast("double").alias("raw_timestamp"),
         F.col(columns["task"]).cast("long").alias("raw_task_index"),
-        F.col(columns["instruction"]).cast("string").alias("instruction_text"),
+        *(
+            [F.col(instruction).cast("string").alias("instruction_text")]
+            if instruction
+            else [F.lit(None).cast("string").alias("instruction_text")]
+        ),
         *(
             [F.col(sensor_timestamp).cast("long").alias("raw_sensor_timestamp")]
             if sensor_timestamp
@@ -74,6 +82,29 @@ def select_frame_columns(frames: DataFrame, config: dict[str, Any]) -> DataFrame
         )
 
     return selected
+
+
+def attach_task_text(frames: DataFrame, tasks: DataFrame | None) -> DataFrame:
+    fallback_instruction = F.concat(F.lit("task_"), F.col("raw_task_index").cast("string"))
+    if tasks is None or not {"task_index", "task"}.issubset(set(tasks.columns)):
+        return frames.withColumn(
+            "instruction_text",
+            F.coalesce(F.col("instruction_text"), fallback_instruction),
+        )
+
+    lookup = tasks.select(
+        F.col("task_index").cast("long").alias("lookup_task_index"),
+        F.col("task").cast("string").alias("lookup_instruction_text"),
+    ).dropDuplicates(["lookup_task_index"])
+
+    return (
+        frames.join(lookup, frames.raw_task_index == lookup.lookup_task_index, "left")
+        .withColumn(
+            "instruction_text",
+            F.coalesce(F.col("instruction_text"), F.col("lookup_instruction_text"), fallback_instruction),
+        )
+        .drop("lookup_task_index", "lookup_instruction_text")
+    )
 
 
 def build_anchor_samples(
@@ -254,11 +285,12 @@ def stable_config_hash(config: dict[str, Any]) -> str:
 
 def build_synced_samples(
     frames: DataFrame,
+    tasks: DataFrame | None,
     config: dict[str, Any],
     source_table: str,
     source_snapshot_id: int | None,
 ) -> DataFrame:
-    selected_frames = select_frame_columns(frames, config).cache()
+    selected_frames = attach_task_text(select_frame_columns(frames, config), tasks).cache()
     anchors = build_anchor_samples(selected_frames, config, source_table, source_snapshot_id)
 
     observation_stats = build_window_stats(
@@ -310,6 +342,7 @@ def main() -> None:
     parquet_compression = config.get("parquet_compression", "snappy")
 
     source_table = full_table_name(catalog_name, source["namespace"], source["frames_table"])
+    tasks_table = full_table_name(catalog_name, source["namespace"], source["tasks_table"])
     target_table = full_table_name(catalog_name, target["namespace"], target["samples_table"])
 
     registry_dir.mkdir(parents=True, exist_ok=True)
@@ -319,7 +352,11 @@ def main() -> None:
 
     source_snapshot_id = latest_snapshot_id(spark, source_table)
     frames = spark.table(source_table)
-    synced_samples = build_synced_samples(frames, config, source_table, source_snapshot_id)
+    try:
+        tasks = spark.table(tasks_table)
+    except Exception:
+        tasks = None
+    synced_samples = build_synced_samples(frames, tasks, config, source_table, source_snapshot_id)
 
     sample_count = write_iceberg_table(synced_samples, target_table, parquet_compression)
     target_snapshot_id = latest_snapshot_id(spark, target_table)

@@ -1,4 +1,4 @@
-dataset_name: l2d_v3_sample
+dataset_name: robotis_omy_pick_place_redblock
 catalog_name: robot_lakehouse
 warehouse_dir: /workspace/warehouse/robot_lakehouse
 spark_master: spark://spark-master:7077
@@ -11,9 +11,9 @@ source:
 target:
   namespace: synced
   samples_table: samples
-registry_dir: registry/datasets/l2d_v3_sample
+registry_dir: registry/datasets/robotis_omy_pick_place_redblock
 episode_filter_start: 0
-episode_filter_count: 19
+episode_filter_count: 100
 frame_stride: 30
 columns:
   episode: episode_index

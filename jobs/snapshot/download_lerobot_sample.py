@@ -76,7 +76,7 @@ def ensure_writable_directory(path: Path) -> None:
     except PermissionError as exc:
         raise PermissionError(
             f"Cannot write to {path}. On Linux bind mounts, run containers with the host UID/GID, "
-            "for example: HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose run --rm app -lc \"python jobs/download_lerobot_sample.py\""
+            "for example: HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose run --rm app -lc \"python jobs/snapshot/download_lerobot_sample.py\""
         ) from exc
 
 

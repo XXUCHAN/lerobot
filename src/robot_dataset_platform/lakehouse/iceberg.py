@@ -17,10 +17,17 @@ def build_iceberg_spark(config: dict[str, Any], app_name: str) -> SparkSession:
     warehouse_dir = config.get("warehouse_dir", "warehouse/robot_lakehouse")
     spark_master = config.get("spark_master", "local[*]")
     hadoop_user = config.get("hadoop_user_name", "spark")
+    iceberg_package = config.get(
+        "iceberg_package",
+        "org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0",
+    )
+    spark_jars_ivy = config.get("spark_jars_ivy", "/workspace/.cache/ivy2")
 
     return (
         SparkSession.builder.appName(app_name)
         .master(spark_master)
+        .config("spark.jars.packages", iceberg_package)
+        .config("spark.jars.ivy", spark_jars_ivy)
         .config("spark.hadoop.hadoop.job.ugi", hadoop_user)
         .config("spark.driver.extraJavaOptions", f"-Duser.name={hadoop_user}")
         .config("spark.executor.extraJavaOptions", f"-Duser.name={hadoop_user}")
