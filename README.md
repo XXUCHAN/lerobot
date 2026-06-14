@@ -205,29 +205,41 @@ action frame window
 episode video references
 ```
 
-Export the manifest into a LeRobot-style tabular dataset:
+Export the annotation-aware synced manifest into a LeRobot-style tabular dataset:
 
 ```bash
 docker compose run --rm app -lc "python jobs/export_lerobot_manifest.py"
 ```
 
-The MVP export materializes one logical training sample per manifest row. It
-copies tabular observation/action values into a LeRobot-style directory and
-keeps large source videos as references in `meta/sample_refs.jsonl`.
+The export materializes one logical training sample per manifest row. It copies
+tabular observation/action values into a LeRobot-style directory, keeps large
+source videos as references in `meta/sample_refs.jsonl`, and records manifest,
+annotation, sync, and source snapshot lineage in both the export metadata and the
+dataset registry.
 
 ```text
-data/exports/lerobot/l2d_v3_manifest_export/
+data/exports/lerobot/l2d_v3_synced_manifest_export/
   meta/info.json
   meta/stats.json
+  meta/export_lineage.json
   meta/tasks.parquet
   meta/episodes/chunk-000/file-000.parquet
   meta/sample_refs.jsonl
   data/chunk-000/file-000.parquet
 ```
 
-The sample downloader currently fetches about 6.75 GiB. The selected video
-shards are the files referenced by episodes 0 and 1 in `meta/episodes`, so the
-manifest does not point at missing camera files:
+Validate the export artifacts:
+
+```bash
+docker compose run --rm app -lc "python jobs/validate_lerobot_export.py"
+```
+
+The export validator checks that manifest rows, exported data rows, episode rows,
+sample refs, manifest hashes, required columns, and registry records all match.
+
+The sample downloader is configured to fetch about 6.75 GiB. The selected video
+shards are the files referenced by episodes 0 and 1 in `meta/episodes`; rerun
+the downloader if the export validator reports non-zero `missing_video_ref_count`:
 
 ```text
 README.md

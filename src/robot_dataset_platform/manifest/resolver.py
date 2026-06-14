@@ -22,6 +22,7 @@ class ManifestSample:
     observation_end_frame: int
     action_start_frame: int
     action_end_frame: int
+    row: dict[str, Any]
 
     @classmethod
     def from_dict(cls, row: dict[str, Any]) -> "ManifestSample":
@@ -35,7 +36,11 @@ class ManifestSample:
             observation_end_frame=int(row["observation_end_frame"]),
             action_start_frame=int(row["action_start_frame"]),
             action_end_frame=int(row["action_end_frame"]),
+            row=dict(row),
         )
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.row.get(key, default)
 
 
 class ManifestResolver:

@@ -16,13 +16,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--manifest-path",
-        default="data/manifests/l2d_v3_sample/manifest.jsonl",
+        default="data/manifests/l2d_v3_synced_sample/manifest.jsonl",
         help="Manifest JSONL path.",
     )
     parser.add_argument(
         "--export-dir",
-        default="data/exports/lerobot/l2d_v3_manifest_export",
+        default="data/exports/lerobot/l2d_v3_synced_manifest_export",
         help="Output LeRobot-style dataset directory.",
+    )
+    parser.add_argument(
+        "--registry-dir",
+        default="registry/datasets/l2d_v3_synced_sample/exports/lerobot_manifest_export",
+        help="Registry directory for export metadata, lineage, and stats.",
     )
     args = parser.parse_args()
 
@@ -30,6 +35,7 @@ def main() -> None:
         snapshot_dir=Path(args.snapshot_dir),
         manifest_path=Path(args.manifest_path),
         export_dir=Path(args.export_dir),
+        registry_dir=Path(args.registry_dir),
     )
     result = exporter.export()
     print(json.dumps(result, indent=2, ensure_ascii=False))
