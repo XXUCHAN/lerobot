@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,10 @@ def human_bytes(value: int | None) -> str:
 
 def download_metadata(repo_id: str, target_dir: Path, metadata_patterns: list[str]) -> Path:
     console.print("[bold]Step 1/2: downloading metadata[/bold]")
+    ensure_writable_directory(target_dir)
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        ensure_writable_directory(Path(hf_home))
     local_dir = snapshot_download(
         repo_id=repo_id,
         repo_type="dataset",
@@ -60,6 +65,19 @@ def download_metadata(repo_id: str, target_dir: Path, metadata_patterns: list[st
         allow_patterns=metadata_patterns,
     )
     return Path(local_dir)
+
+
+def ensure_writable_directory(path: Path) -> None:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".write_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except PermissionError as exc:
+        raise PermissionError(
+            f"Cannot write to {path}. On Linux bind mounts, run containers with the host UID/GID, "
+            "for example: HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose run --rm app -lc \"python jobs/download_lerobot_sample.py\""
+        ) from exc
 
 
 def read_episode_table(snapshot_dir: Path) -> pa.Table:

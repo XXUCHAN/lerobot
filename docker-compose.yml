@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: docker/spark/Dockerfile
     container_name: robot-dataset-spark-master
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.master.Master
@@ -25,6 +26,7 @@ services:
       context: .
       dockerfile: docker/spark/Dockerfile
     container_name: robot-dataset-spark-worker
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.worker.Worker
@@ -50,6 +52,7 @@ services:
       context: .
       dockerfile: docker/spark/Dockerfile
     container_name: robot-dataset-app
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     environment:
       HF_HOME: /workspace/.cache/huggingface
       SPARK_MASTER_URL: spark://spark-master:7077

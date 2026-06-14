@@ -74,6 +74,23 @@ Raw Episode
 The local MVP uses Docker Compose so Spark, Java, and Python dependencies stay
 inside containers.
 
+On Linux servers, run containers with the host user id so bind-mounted generated
+data can be written by both Docker and the shell:
+
+```bash
+cp .env.example .env
+sed -i "s/HOST_UID=.*/HOST_UID=$(id -u)/" .env
+sed -i "s/HOST_GID=.*/HOST_GID=$(id -g)/" .env
+```
+
+If a previous container created local artifact directories with another user,
+fix ownership before downloading large samples:
+
+```bash
+sudo chown -R $(id -u):$(id -g) .cache data warehouse registry 2>/dev/null || true
+mkdir -p .cache data warehouse registry
+```
+
 Build the environment:
 
 ```bash
