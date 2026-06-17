@@ -143,7 +143,15 @@ snapshot_download(
 PY"
 ```
 
-다운로드한 snapshot을 검사한다.
+다운로드 후 pipeline 실행 전에 source dataset이 플랫폼 표준 contract를 만족하는지 검증한다.
+
+```bash
+docker compose run --rm app -lc "python jobs/snapshot/validate_dataset_contract.py"
+```
+
+Contract validator는 `meta/info.json`, frame parquet, episode/task metadata, 필수 frame column, action/observation column, video path template, video reference, episode별 timestamp/frame 품질을 확인한다. 표준을 만족하지 못하면 ingest 전에 실패 지점을 알려준다.
+
+Contract 검증을 통과하면 snapshot을 사람이 읽기 쉬운 형태로 검사할 수 있다.
 
 ```bash
 docker compose run --rm app -lc "python jobs/snapshot/inspect_lerobot_snapshot.py"

@@ -63,6 +63,7 @@ def ensure_snapshot(snapshot_dir: Path, download: bool) -> None:
 
 def pipeline_steps(py: str, manifest_config: Path, include_inspect: bool) -> list[PipelineStep]:
     steps = [
+        PipelineStep("Validate source dataset contract", [py, "jobs/snapshot/validate_dataset_contract.py"]),
         PipelineStep("Inspect source snapshot", [py, "jobs/snapshot/inspect_lerobot_snapshot.py"], inspect=True),
         PipelineStep("Ingest raw data to Iceberg", [py, "jobs/lakehouse/ingest_raw_to_iceberg.py"]),
         PipelineStep("Inspect raw Iceberg tables", [py, "jobs/lakehouse/inspect_iceberg_tables.py"], inspect=True),
